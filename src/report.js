@@ -38,7 +38,7 @@ function publishSentinelHubError(status, body) {
 // Helper: Build clean WMS params for offline HTML export (bypasses Leaflet object serialization)
 function buildHTMLWMSParams(timeStr, isDiff) {
     const scriptContent = getScriptContent(window.CONFIG, window.state.activeIndex, isDiff, false, window.state);
-    const wmsLayer = window.state.activeIndex === 's1_sar' ? 'SENTINEL1-GRD' : 'AGRICULTURE';
+    const wmsLayer = window.state.activeIndex === 's1_sar' ? 'SENTINEL1-GRD' : (window.CONFIG.SH_WMS_LAYER || 'AGRICULTURE');
     return {
         service: 'WMS',
         request: 'GetMap',
@@ -91,7 +91,7 @@ export async function downloadHTMLReport() {
             }
         };
 
-        const wmsLayerParam = window.state.activeIndex === 's1_sar' ? 'SENTINEL1-GRD' : 'AGRICULTURE';
+        const wmsLayerParam = window.state.activeIndex === 's1_sar' ? 'SENTINEL1-GRD' : (window.CONFIG.SH_WMS_LAYER || 'AGRICULTURE');
         const safeB64 = (str) => btoa(unescape(encodeURIComponent(str)));
 
         let b64TcBg = window.state.activeIndex === 's1_sar' ? safeB64(getScriptContent(window.CONFIG, 's1_sar', false, false, window.state)) : safeB64(getScriptContent(window.CONFIG, 'tc', false, false, window.state));

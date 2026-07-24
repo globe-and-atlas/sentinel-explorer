@@ -1338,10 +1338,12 @@ document.addEventListener('DOMContentLoaded', () => {
     state.map.on('sentinelguard', (e) => {
         updateSentinelGuardUI();
         const detail = e?.status || {};
+        const usingCog = e?.fallback === 'cog';
+        const cogNote = usingCog ? ' Showing the free COG renderer for this lens instead.' : '';
         if (detail.reason === 'disarmed') {
-            showToast('Sentinel Hub live tiles are disarmed. Enable them in Settings to spend credits.', 'info');
+            showToast(`Sentinel Hub live tiles are disarmed. Enable them in Settings to spend credits.${cogNote}`, 'info');
         } else if (detail.reason === 'zoom') {
-            showToast(`Sentinel Hub guarded below zoom ${detail.minZoom}. Zoom in to render WMS tiles.`, 'info');
+            showToast(`Sentinel Hub guarded below zoom ${detail.minZoom}. Zoom in to render WMS tiles.${cogNote}`, 'info');
         }
     });
     state.map.on('sentinelratelimit', (e) => {
@@ -2732,9 +2734,11 @@ function evaluatePixel(sample) {
                         if (anomaliesPanel) anomaliesPanel.style.display = 'block';
                         if (anomaliesList) {
                             let anomalyHtml = '';
+                            const anomalyConfig = getActiveConfig();
+                            const anomalyWmsLayer = anomalyConfig.SH_WMS_LAYER || 'AGRICULTURE';
                             state.anomalousDates.forEach(dateStr => {
-                                let tcScript = getScriptContent(internalAppConfig, 'tc', false, false, state);
-                                let pwiScript = getScriptContent(internalAppConfig, 'pwi', false, false, state);
+                                let tcScript = getScriptContent(anomalyConfig, 'tc', false, false, state);
+                                let pwiScript = getScriptContent(anomalyConfig, 'pwi', false, false, state);
 
                                 // To prevent blank/transparent images due to clouds or orbit gaps on specific days,
                                 // we request a 10-day composite window around the anomaly date
@@ -2743,8 +2747,8 @@ function evaluatePixel(sample) {
                                 let end_d = new Date(d); end_d.setDate(d.getDate() + 5);
                                 let timeWindow = `${start_d.toISOString().slice(0, 10)}/${end_d.toISOString().slice(0, 10)}`;
 
-                                let tcUrl = `${SH_WMS_URL}?service=WMS&request=GetMap&version=1.3.0&layers=AGRICULTURE&format=image/jpeg&transparent=false&width=400&height=400&crs=CRS:84&bbox=${bboxStr}&time=${timeWindow}&maxcc=20&evalscript=${btoa(unescape(encodeURIComponent(tcScript)))}`;
-                                let pwiUrl = `${SH_WMS_URL}?service=WMS&request=GetMap&version=1.3.0&layers=AGRICULTURE&format=image/png&transparent=true&width=400&height=400&crs=CRS:84&bbox=${bboxStr}&time=${timeWindow}&maxcc=20&evalscript=${btoa(unescape(encodeURIComponent(pwiScript)))}`;
+                                let tcUrl = `${SH_WMS_URL}?service=WMS&request=GetMap&version=1.3.0&layers=${anomalyWmsLayer}&format=image/jpeg&transparent=false&width=400&height=400&crs=CRS:84&bbox=${bboxStr}&time=${timeWindow}&maxcc=20&evalscript=${btoa(unescape(encodeURIComponent(tcScript)))}`;
+                                let pwiUrl = `${SH_WMS_URL}?service=WMS&request=GetMap&version=1.3.0&layers=${anomalyWmsLayer}&format=image/png&transparent=true&width=400&height=400&crs=CRS:84&bbox=${bboxStr}&time=${timeWindow}&maxcc=20&evalscript=${btoa(unescape(encodeURIComponent(pwiScript)))}`;
 
                                 anomalyHtml += `
                                 <div style="position: relative; width: 100%; aspect-ratio: 1; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
@@ -3130,7 +3134,8 @@ function evaluatePixel(sample) {
                 }
 
                 // Generate URLs
-                let wmsLayerParam = 'AGRICULTURE';
+                const reportConfig = getActiveConfig();
+                let wmsLayerParam = reportConfig.SH_WMS_LAYER || 'AGRICULTURE';
                 if (state.activeIndex === 's1_sar') wmsLayerParam = 'SENTINEL1-GRD';
 
                 const isDiffAnim = true; // Always build the Difference Heatmap GIF
@@ -3138,9 +3143,9 @@ function evaluatePixel(sample) {
                 // Standard imagery GIF always uses True Color — reliable across all WMS time-range requests.
                 // Index-specific visualization is the diff heatmap GIF's job.
                 const safeB64 = (str) => btoa(unescape(encodeURIComponent(str)));
-                const b64TcBg = state.activeIndex === 's1_sar' ? safeB64(getScriptContent(internalAppConfig, 's1_sar', false, false, state)) : safeB64(getScriptContent(internalAppConfig, 'tc', false, false, state));
+                const b64TcBg = state.activeIndex === 's1_sar' ? safeB64(getScriptContent(reportConfig, 's1_sar', false, false, state)) : safeB64(getScriptContent(reportConfig, 'tc', false, false, state));
 
-                let diffB64Math = safeB64(getScriptContent(internalAppConfig, state.activeIndex, true, false, state));
+                let diffB64Math = safeB64(getScriptContent(reportConfig, state.activeIndex, true, false, state));
 
                 // Calculate dynamic GIF dimensions based on AOI aspect ratio to prevent squashing
                 let latRad = bounds.getCenter().lat * Math.PI / 180;
@@ -3286,7 +3291,7 @@ function evaluatePixel(sample) {
                 if (gifIndexTitle) gifIndexTitle.innerText = `${idxName} — Index Gradient`;
 
                 // Build index-specific evalscript URLs (one per frame, single-date)
-                const b64IndexScript = safeB64(getScriptContent(internalAppConfig, state.activeIndex, false, false, state));
+                const b64IndexScript = safeB64(getScriptContent(reportConfig, state.activeIndex, false, false, state));
                 const indexUrls = frameIndices.map(i => {
                     const dateStr = ALL_DATES[i].value;
                     let dPrior = new Date(dateStr);

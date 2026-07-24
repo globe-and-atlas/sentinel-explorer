@@ -376,6 +376,16 @@ function getSentinelGuardLayer(state, status, activeIdx) {
     return layer;
 }
 
+// Indices execution/render_cog_tile.py actually implements. Kept in sync by hand with
+// COG_SUPPORTED_INDEX_KEYS in src/app.js — duplicated here (rather than imported) so the
+// Sentinel-guard fallback below doesn't need a circular app.js <-> map.js import.
+const COG_FALLBACK_SUPPORTED_KEYS = new Set([
+    'none', 'tc', 'truecolor', 'true-color', 'swir_rgb',
+    'awei', 'ndre', 'ndmi', 'ndwi', 'ndvi', 'savi', 'bsi', 'ndsi',
+    'si', 'csi', 'hcai', 'hmri', 'ndoi', 'ksi', 'vssi',
+    'pwi', 'hpwi', 'pwoi', 'lbi'
+]);
+
 export function getIndexLayer(state, config, timeStr, isDiff, overrideIndex = null) {
     const provider = getImageryProvider(config);
     if (provider === 'cog' || provider === 'sentinel-cog' || provider === 'sentinel2-cog') {
@@ -387,6 +397,17 @@ export function getIndexLayer(state, config, timeStr, isDiff, overrideIndex = nu
     const activeIdx = overrideIndex || state.activeIndex;
     const guardStatus = getSentinelCreditGuardStatus(state, config);
     if (guardStatus.blocked) {
+        // Sentinel Hub WMS is the requested (primary) provider but guarded/unarmed right now.
+        // Fall back to the free COG renderer for indices it implements, instead of an inert
+        // placeholder tile, so the map still shows real analysis while Sentinel credits stay
+        // protected. Still fire 'sentinelguard' so the UI can explain the swap.
+        if (COG_FALLBACK_SUPPORTED_KEYS.has(activeIdx)) {
+            const layer = getCOGLayer(state, config, timeStr, isDiff, overrideIndex);
+            if (state.map) {
+                setTimeout(() => state.map.fire('sentinelguard', { status: guardStatus, layer: activeIdx, provider: 'sentinelhub', fallback: 'cog' }), 0);
+            }
+            return layer;
+        }
         return getSentinelGuardLayer(state, guardStatus, activeIdx);
     }
     return getWMSLayer(state, config, timeStr, isDiff, overrideIndex);
@@ -819,7 +840,7 @@ export function getWMSLayer(state, config, timeStr, isDiff, overrideIndex = null
     const scriptContent = getScriptContent(config, activeIdx, isDiff, isCumulative, state);
     const { SH_WMS_URL, INDICES } = config;
 
-    let wmsLayerParam = 'AGRICULTURE';
+    let wmsLayerParam = config.SH_WMS_LAYER || 'AGRICULTURE';
     const cfg = INDICES[activeIdx];
     if (activeIdx === 's1_sar' || (cfg && cfg.sensor === 'Sentinel-1 GRD')) wmsLayerParam = 'SENTINEL1-GRD';
     if (state.hlsEnabled && activeIdx !== 's1_sar' && activeIdx !== 'hpwi') {
@@ -1017,7 +1038,7 @@ export async function updateGifInset(state, config) {
     const activeScript = getScriptContent(config, activeIndex, false, false);
     const b64Tc = btoa(unescape(encodeURIComponent(tcScript)));
     const b64Active = btoa(unescape(encodeURIComponent(activeScript)));
-    let wmsLayerParam = 'AGRICULTURE';
+    let wmsLayerParam = config.SH_WMS_LAYER || 'AGRICULTURE';
     const cfg = INDICES[activeIndex];
     if (activeIndex === 's1_sar' || (cfg && cfg.sensor === 'Sentinel-1 GRD')) wmsLayerParam = 'SENTINEL1-GRD';
     if (img._insetTimer) clearInterval(img._insetTimer);

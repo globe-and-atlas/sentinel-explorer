@@ -36,8 +36,15 @@ window.CONFIG = {
     CDSE_CLIENT_ID: "YOUR_COPERNICUS_CLIENT_ID_HERE",
     CDSE_CLIENT_SECRET: "YOUR_COPERNICUS_CLIENT_SECRET_HERE",
 
-    // Optional Atlas WMS settings.
+    // Optional Sentinel Hub WMS settings (shared by Limn and Atlas).
     // Leave blank to use the built-in Limn Atlas fallback WMS endpoint.
     SH_WMS_URL: "",
+    // Layer name to request from your Sentinel Hub instance. The bundled default,
+    // "AGRICULTURE", is Sentinel-2 L1C (no SCL band, top-of-atmosphere reflectance).
+    // If you add your own Sentinel-2 L2A layer in the Sentinel Hub Configuration
+    // Utility (Source: "Sentinel-2 - L2A"), set its layer name here AND flip
+    // SENTINEL_WMS_SUPPORTS_SCL above to true — L2A surface reflectance is what the
+    // produced-water/salinity index formulas are actually defined on.
+    SH_WMS_LAYER: "AGRICULTURE",
     ATLAS_WMS_LAYER: "AGRICULTURE"
 };

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { CALIBRATION_PRESETS, INDICES } from '../src/indices.js';
+import { CALIBRATION_PRESETS, INDICES, adaptEvalscriptForSentinelWms } from '../src/indices.js';
 
 const cal = CALIBRATION_PRESETS.permian;
 
@@ -13,6 +13,11 @@ function buildEvaluatePixel(indexKey) {
     .replace(/__PWI_HMRI_OFFSET__/g, cal.pwiHmriOffset);
 
   script = `const VISUAL_FILTER = 0;\nconst DETECTION_SENSITIVITY = 0;\n${script}`;
+  // This test exercises the core index math, not the per-pixel SCL cloud/quality gate every
+  // evalscript now carries (added 2026-07-21) — synthetic samples below have no SCL property, so
+  // the gate would zero every result before the formula ever runs. Strip it, same as
+  // getScriptContent() does for a WMS carrier that can't supply SCL.
+  script = adaptEvalscriptForSentinelWms(script, false);
   return new Function(`${script}\nreturn evaluatePixel;`)();
 }
 

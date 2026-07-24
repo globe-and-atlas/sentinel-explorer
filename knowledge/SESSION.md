@@ -12,6 +12,14 @@
 
 ## Active Checkpoints
 
+### 2026-07-24 - Wired real Sentinel-2 L2A layer + COG auto-fallback (Claude Code CLI / Sonnet 5)
+- User wants "Sentinel primary, COG secondary" for visuals/analysis. Discovered the bundled public WMS carrier (`AGRICULTURE`, instance `83a6b821...`) is Sentinel-2 L1C (confirmed via GetCapabilities — exposes `B10`, no `SCL`), which would make analysis *worse* than COG's L2A, not better.
+- User added a real `SENTINEL-2-L2A` layer to the instance via the Configuration Utility. Wired it: `config-v1.js`/`config.example.js` new `SH_WMS_LAYER` key + `SENTINEL_WMS_SUPPORTS_SCL: true`; fixed 5 hardcoded `'AGRICULTURE'` call sites (map.js x2, report.js x2, app.js scanned-anomalies+GIF builders) to read it; fixed 3 spots in app.js silently using stale `internalAppConfig` instead of `getActiveConfig()`.
+- Implemented the actual "COG secondary" behavior: `getIndexLayer()` now falls back to the free COG renderer (for indices it implements) instead of an inert placeholder grid whenever Sentinel is guarded/unarmed. Verified live both ways: blocked→12 COG tiles/0 Sentinel requests; armed→7 real requests with `layers=SENTINEL-2-L2A` confirmed in the URL.
+- Found + fixed a pre-existing unrelated test break: `test_produced_water_rendering.mjs` built evalscripts raw, missing the 2026-07-21 SCL gate fix (same root cause as the hotspot-loop bug fixed earlier today).
+- Deliberately did NOT flip `IMAGE_PROVIDER` default from "cog" to "sentinelhub" — many `isCogProviderActive()` UI gates throughout app.js key off the *configured* provider name, not the *effective* renderer, so flipping the default safely needs its own pass. Surfaced this to the user as an open decision rather than doing it silently.
+- Full detail: `knowledge/DECISIONS.md` "Added a real Sentinel-2 L2A WMS layer..."; `knowledge/domain/api-contracts.md` Sentinel Hub WMS section.
+
 ### 2026-07-24 - Fixed hotspot-loop SCL bug + added brine calibration site (Claude Code CLI / Opus 4.8)
 - Fixed `execution/limn_hotspot_loop.py`: `materialize()` now applies `adaptEvalscriptForSentinelWms(script, false)` — the tool went from 100% HTTP-400 failures to working. Verified real verdicts + SCL-free scripts.
 - Added user-reported calibration site `brine-calibration-31892-2025` (lat 31.892457, lng -101.864001, wet brine Nov–Dec 2025) to `SPILL_BOOKMARKS`. Measured via fixed loop: OBEC pad-scale signal at 2025-12-01 (~1.4% coherent), provider-dependent; PWCI/ASAI/LBI blank-weak; broad-firing BPI/FBC/VSI/REAI excluded. Class `produced-water-context`, chip `hpwi`.
@@ -130,3 +138,4 @@
 - 2026-07-23 14:10 — commit: feat: Sentinel-only date filtering, salinity/produced-water badges, KSI/VSSI indices | atlas.html,directives/filter_sentinel_dates.md,execution/render_cog_tile.py,index.html,knowledge/DECISIONS.md
 - 2026-07-23 14:10 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-24 06:38 — commit: fix: Atlas EC-ACI honesty + LinkedIn grammar; hotspot-loop SCL bug; brine calibration site | directives/fix_atlas_lead_qc_findings.md,directives/fix_hotspot_loop_and_add_brine_site.md,execution/limn_hotspot_loop.py,knowledge/DECISIONS.md,knowledge/ERRORS.md
+- 2026-07-24 06:38 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
