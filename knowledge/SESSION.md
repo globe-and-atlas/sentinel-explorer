@@ -185,3 +185,4 @@
 - 2026-07-25 15:44 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-25 15:47 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-25 16:09 — commit: docs: add ATLAS.md and restructure README around both apps | ATLAS.md,README.md
+- 2026-07-25 16:09 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
