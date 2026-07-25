@@ -12,6 +12,16 @@
 
 ## Active Checkpoints
 
+### 2026-07-25 (cont.) - Closeout: finding narrowed, QC reproduced, both repos published (Claude Code CLI / Opus 5)
+- **Radiometric finding narrowed twice, both times by checking real metadata.** Earth Search publishes `earthsearch:boa_offset_applied`; it is `true` for most items, so a bare `DN/10000` was correct for those. The defect is the subset where it is `false` on baseline >= 04.00: 38 of 589 items (6.5%) over the Permian bbox, in 2022 and 2025, none in 2023-2024. The hazard is that it is scene-dependent, so no date rule fixes it. The shipped fix already reads the flag per item and is unchanged — only the characterisation was wrong.
+- **No recorded result was ever affected.** Threshold chain uses the Statistics API. The 07-23 COG visual QC re-ran with offset 0.0 on all 56 tiles, reproducing the qualitative result. Percentage deltas vs the ad-hoc pass are parameter-driven, not offset-driven.
+- New `execution/qc_spill_cog_render.py` makes that pixel QC reproducible and records the resolved offset per scene — the ad-hoc nature of the 07-23 pass is why drift went unnoticed.
+- 27-vs-32 settled: 32 records in `data/rrc_spills.json`; the 2026-03-28 run resolved 27 (5 named in `validation_summary.md`); the sweep uses all 32. `sweep_thresholds.py` said "27-record" while reading the 32-row file. Re-running reproduced every sweep number identically.
+- `verifiedBookmarks` wired into the Atlas evidence panel as "Reviewed event references"; pre-Sentinel-2 events display as unobservable rather than offering an impossible date.
+- Published: limn `main` + tag `gsia-v3-audit` (fd00b890) to globe-and-atlas/limn and dbally-gis/limn; preprint branch + tag `gsia-v3-preprint` (e2f96e1) to globe-and-atlas/remote-sensing-research. Manuscript citations pinned to the tag, not `blob/main/`, so they resolve immutably and do not depend on the merge.
+- **Open for the user:** the v3 preprint files sit on `agent/publish-gsia-v2-catalog`; main takes changes via PR (PR #1 is the precedent). Opening that PR is the user's call — citations already resolve without it.
+
+
 ### 2026-07-25 - Deep scientific review + 8 corrections (Claude Code CLI / Opus 5)
 - Scope: Limn Atlas + Sentinel processing, driven by two uses — writing about band combinations, and FRGS/CGeo applications. Reviewed all 91 records against the published GSIA preprint v2 supplement.
 - **Radiometric bug (highest severity):** COG provider omitted the baseline-04.00 `BOA_ADD_OFFSET`; every post-2022-01-25 reflectance read 0.1 high, biasing all normalized ratios (not just threshold indices). Fixed with per-scene offset resolution + double-correction guard. WMS and GEE paths were never affected. See ERRORS.md.
@@ -167,4 +177,5 @@
 - 2026-07-25 14:03 — commit: fix: correct radiometric offset and claim/code mismatches found in scientific review | atlas.html,execution/generate_preprint_supplement.py,execution/qc_atlas_bookmarks.py,execution/reconcile_preprint_supplement.py,execution/render_cog_tile.py
 - 2026-07-25 14:24 — commit: docs: correct the radiometric bug's blast radius in ERRORS.md | knowledge/ERRORS.md
 - 2026-07-25 14:51 — commit: fix: narrow the radiometric finding to what the metadata actually shows | execution/qc_spill_cog_render.py,execution/sweep_thresholds.py,execution/validation_summary.md,knowledge/ERRORS.md,knowledge/SESSION.md
+- 2026-07-25 14:51 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-25 14:51 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
