@@ -179,3 +179,4 @@
 - 2026-07-25 14:51 — commit: fix: narrow the radiometric finding to what the metadata actually shows | execution/qc_spill_cog_render.py,execution/sweep_thresholds.py,execution/validation_summary.md,knowledge/ERRORS.md,knowledge/SESSION.md
 - 2026-07-25 14:51 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-25 14:51 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
+- 2026-07-25 15:28 — commit: docs: session checkpoint for the 2026-07-25 review closeout | knowledge/SESSION.md
