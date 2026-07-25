@@ -14,6 +14,7 @@ import { SAR_DEMO_INDICES, SAR_DEMO_DOMAIN } from './atlas-sar-demos.js?v=2';
 import { S5P_DEMO_INDICES, S5P_DEMO_DOMAIN } from './atlas-s5p-demos.js?v=2';
 import { countsAsAtlasCitation, getAtlasEvidence, getAtlasTrust } from './atlas-evidence.js?v=4';
 import { authorshipClaims } from './authorshipClaims.js?v=1';
+import { verifiedBookmarks } from './verifiedBookmarks.js?v=1';
 import { getCDSEToken } from './auth.js';
 import { fetchValidSentinelDates } from './sentinel-catalog.js';
 
@@ -541,7 +542,7 @@ function renderEvidencePanel(index) {
 
     const list = document.createElement('div');
     list.className = 'evidence-list';
-    items.slice(0, 4).forEach((item, index) => {
+    items.slice(0, options.limit ?? 4).forEach((item, index) => {
       const link = document.createElement('a');
       link.className = 'evidence-link';
       link.href = item.url;
@@ -566,6 +567,32 @@ function renderEvidencePanel(index) {
   appendEvidenceGroup('Cited sources', citedSources, { numbered: true });
   appendEvidenceGroup('Supporting references', referenceLinks);
   appendEvidenceGroup('Technical checks', technicalLinks);
+  appendEvidenceGroup('Reviewed event references', eventReferencesFor(index), { limit: 6 });
+}
+
+// Source-reviewed incidents behind a record. The date shown is the Sentinel-2
+// search-window end, NOT an acquisition timestamp. Where the event predates the
+// mission there is no observable date at all, and the row says so rather than
+// offering one that cannot return imagery.
+function eventReferencesFor(index) {
+  const rows = verifiedBookmarks[index.key];
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter(row => row.sourceUrl)
+    .map(row => {
+      let type;
+      if (row.sentinelObservable === false) {
+        type = `${String(row.eventDate || '').slice(0, 4)} · pre-Sentinel-2`;
+      } else if (row.sentinelObservable === 'sparse') {
+        type = `${row.date} · sparse archive`;
+      } else {
+        type = row.date;
+      }
+      const note = row.sentinelObservable === false
+        ? `${row.note || ''} Event predates Sentinel-2 (launched 2015-06-23), so no scene of it exists; the site remains inspectable at a later date.`.trim()
+        : row.note;
+      return { url: row.sourceUrl, label: row.label, type, note };
+    });
 }
 
 function firstSentence(text, fallback = '') {

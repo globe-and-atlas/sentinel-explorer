@@ -58,15 +58,32 @@ The three providers do **not** agree on who applies this:
 
 | Provider | Serves | Who applies the offset | Correct client conversion |
 |---|---|---|---|
-| Earth Search COG (`sentinel-2-l2a`) | raw ESA DN | **nobody — the client must** | `(DN + offset) / 10000` |
+| Earth Search COG (`sentinel-2-l2a`) | **inconsistent — see below** | Earth Search, for most but not all items | must be resolved per item |
 | Sentinel Hub WMS / Processing API | harmonized | Sentinel Hub (`harmonizeValues` defaults to **true**) | values are already reflectance |
 | Google Earth Engine (`COPERNICUS/S2_SR_HARMONIZED`) | harmonized by Google | Google | `DN / 10000` |
 
+**Earth Search is the trap, and not for the obvious reason.** It exposes
+`earthsearch:boa_offset_applied`. When that is `true` the offset is already spent
+and `DN / 10000` is correct. When it is `false` on a baseline >= 04.00 item, it is
+not, and the same expression reads 0.1 high.
+
+Both states occur in the same collection, over the same tiles, in adjacent months.
+Measured over the Permian test bbox on 2026-07-25: **38 of 589 items (6.5%)** were
+baseline >= 04.00 with the offset unapplied, concentrated in 2022 and 2025, with
+zero such items in 2023 and 2024. Do not assume a date rule — a 2025 scene can be
+already-applied while a 2022 scene of the same tile is not.
+
+The practical consequence is worse than a uniform bias would be: a uniform shift
+is at least consistent, whereas this makes two scenes of the same site differ by
+0.1 reflectance with nothing in the output to indicate it. Any multi-date
+comparison, threshold, or change-detection product built on the raw expression is
+silently inconsistent across scenes.
+
 Consequences to keep in mind:
 
-- A bare `DN / 10000` on the COG path reads **0.1 reflectance high** for any
-  post-2022-01-25 scene. This is not a rounding concern — it is larger than most
-  index thresholds in the catalog.
+- A bare `DN / 10000` on the COG path reads **0.1 reflectance high** on any scene
+  where the archive has not itself applied the offset. This is not a rounding
+  concern — it is larger than most index thresholds in the catalog.
 - An additive offset does **not** cancel in `(a - b) / (a + b)`. Normalized
   indices are biased toward zero, so "it's just a constant shift, ratios are safe"
   is false. NDVI from DN 3000/1500: 0.33 uncorrected vs 0.60 corrected.

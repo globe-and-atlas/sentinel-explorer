@@ -6,7 +6,11 @@ background false-positive rate — or is the recall-FP tradeoff essentially the
 diagonal (no separation) for the flagships?
 
 Inputs (raw Sentinel-2 band means, self-sufficient):
-  execution/spill_bands.csv       — 27-record TRRC benchmark, event dates
+  execution/spill_bands.csv       — 32-record TRRC benchmark, event dates
+                                    (all 32 records in data/rrc_spills.json; the earlier
+                                     2026-03-28 index run in validation_raw.csv covered
+                                     only 27 of them, which is the source of the 27/32
+                                     discrepancy in older summaries)
   execution/background_raw.csv    — 150 Permian background points
 
 Two analyses:
@@ -154,7 +158,7 @@ def main() -> None:
     bg = load(REPO / "execution" / "background_raw.csv")
 
     header = ["# Limn Threshold Sweep — Does a Discriminating Calibration Exist?", "",
-              f"Spill sites: {len(spills)} (TRRC 27-record benchmark). "
+              f"Spill sites: {len(spills)} (all TRRC records in data/rrc_spills.json). "
               f"Background: {len(bg)} (Permian, no event).", ""]
 
     pwci_lines, pwci_best_r, pwci_best_fp = pwci_gate_sweep(spills, bg)

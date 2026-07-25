@@ -164,3 +164,5 @@
 - 2026-07-24 06:38 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-24 09:17 — commit: fix: Sentinel Hub instance ID mismatch blocking new L2A layer | config.example.js,knowledge/DECISIONS.md,knowledge/ERRORS.md,knowledge/SESSION.md,knowledge/domain/api-contracts.md
 - 2026-07-24 09:17 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
+- 2026-07-25 14:03 — commit: fix: correct radiometric offset and claim/code mismatches found in scientific review | atlas.html,execution/generate_preprint_supplement.py,execution/qc_atlas_bookmarks.py,execution/reconcile_preprint_supplement.py,execution/render_cog_tile.py
+- 2026-07-25 14:24 — commit: docs: correct the radiometric bug's blast radius in ERRORS.md | knowledge/ERRORS.md

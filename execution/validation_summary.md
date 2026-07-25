@@ -3,6 +3,18 @@
 **Date:** 2026-03-28
 **Sites:** 27  |  **Indices:** 10
 
+> **Which spill count applies.** `data/rrc_spills.json` holds **32** TRRC incident
+> records. This 2026-03-28 index run resolved usable Statistics API values for **27**
+> of them (BPX Energy 2022-10-11, Cimarex 2023-04-28, Midland Basin Royalty Trust
+> 2022-02-14, Penn Virginia Resource 2023-01-09, and Winkler County Oil Co. 2023-03-31
+> are absent). The later threshold sweep refetched raw bands for all **32**
+> (`execution/spill_bands.csv`) and reports on that full set. Quote **27** only for the
+> detection-rate table below; quote **32** for the sweep and its negative result.
+
+> **Superseded.** The detection rates below come from the permissive pipeline. The July
+> 2026 sweep showed the high recall is an artifact of firing on ~97% of background.
+> Read `reports/threshold_sweep_2026-07-20.md` before quoting any number here.
+
 ## Overall Performance
 
 Index  Threshold  Detected  Rate  Mean   p75   p90   Max

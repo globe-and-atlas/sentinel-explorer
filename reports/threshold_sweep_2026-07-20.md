@@ -1,6 +1,6 @@
 # Limn Threshold Sweep — Does a Discriminating Calibration Exist?
 
-Spill sites: 32 (TRRC 27-record benchmark). Background: 150 (Permian, no event).
+Spill sites: 32 (all TRRC records in data/rrc_spills.json). Background: 150 (Permian, no event).
 
 ## Verdict
 
