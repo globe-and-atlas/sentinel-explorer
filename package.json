@@ -1,6 +1,7 @@
 {
   "name": "limn",
   "version": "0.0.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "start:gee": "node server/gee_tile_server.mjs",

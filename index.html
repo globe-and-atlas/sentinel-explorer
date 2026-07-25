@@ -258,6 +258,28 @@
                     <div class="index-suite-container suite-primary">
                         <div class="suite-heading-row">
                             <div>
+                                <h3>Primary Produced Water Screeners</h3>
+                                <p>Optimized for standing brine, pit overflows, and pad-scale optical contrast.</p>
+                            </div>
+                            <span class="quality-chip primary-chip" data-quality="primary">Primary Screeners</span>
+                        </div>
+                        <div class="index-grid primary-screeners-grid" role="group" aria-label="Primary produced water screeners">
+                            <button class="index-btn idx-lbi primary-screener-card" data-index="lbi" data-tooltip="LBI — Primary screener for standing liquid brine, containment pit overflows, and crater blowouts. Bypasses bare-soil mask when standing water is detected.">
+                                <span class="screener-badge-primary">PRIMARY LIQUID BRINE</span>
+                                <span class="index-short">LBI</span>
+                                <span class="index-full index-full-bold">Liquid Brine Response</span>
+                            </button>
+                            <button class="index-btn idx-hpwi primary-screener-card" data-index="hpwi" data-tooltip="OBEC — Primary screener for pad-scale optical contrast and flowline releases. Combines hydrocarbon NDOI with dual-SWIR salinity and surface smoothness.">
+                                <span class="screener-badge-primary">PRIMARY CONTRAST</span>
+                                <span class="index-short">OBEC</span>
+                                <span class="index-full index-full-bold">Optical Contrast Screener</span>
+                            </button>
+                        </div>
+
+                        <div class="section-divider"></div>
+
+                        <div class="suite-header">
+                            <div>
                                 <h3>Investigation Stack</h3>
                                 <p>Interpret context first; treat every response as a candidate.</p>
                             </div>
@@ -267,10 +289,6 @@
                             <button class="index-btn idx-tc" data-index="tc" data-tooltip="True Color — default visual context. Inspect the actual surface before interpreting any index response.">
                                 <span class="index-short">RGB</span>
                                 <span class="index-full index-full-bold">True Color Context</span>
-                            </button>
-                            <button class="index-btn idx-lbi" data-index="lbi" data-tooltip="LBI — preliminary liquid/salinity response hypothesis. Useful for standing-liquid candidates; not brine-specific or validated for produced water.">
-                                <span class="index-short">LBI</span>
-                                <span class="index-full index-full-bold">Liquid Candidate Response</span>
                             </button>
                             <button class="index-btn idx-ndwi" data-index="ndwi" data-tooltip="MNDWI — established Green/SWIR1 open-water and wet-surface context; not a salinity measurement.">
                                 <span class="index-short">MNDWI</span>
@@ -463,6 +481,8 @@
                                     <button id="btn-diff"
                                         data-tooltip="Renders a heatmap showing the mathematical difference (After - Before). Red = Loss/Decrease, Blue = Gain/Increase.">Diff
                                         (∆)</button>
+                                    <button id="btn-auto-baseline" class="btn-auto-baseline-style"
+                                        data-tooltip="Automatically picks a 30-day pre-spill baseline date (T1) and computes the change heatmap (T2 - T1), cancelling static caliche and well pads.">Auto Baseline (∆)</button>
                                     <button id="btn-cumulative"
                                         data-tooltip="Aggregates ALL scenes within the date range and displays the maximum detection value found at each pixel. Ideal for tracking spill footprints over time.">Cumulative</button>
                                 </div>

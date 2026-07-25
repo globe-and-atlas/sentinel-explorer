@@ -42,7 +42,9 @@ return `//VERSION=3
 function setup() {
   return {
     input: [${inputBands.map(b => `'${b}'`).join(', ')}, "dataMask"],
-    output: { bands: 4 }
+    output: { bands: 4 },
+    upsampling: "BILINEAR",
+    downsampling: "BILINEAR"
   };
 }
 function evaluatePixel(sample) {
@@ -67,7 +69,9 @@ function setup() {
   return {
     input: [${inputBands.map(b => `'${b}'`).join(', ')}, "dataMask"],
     output: { bands: 4 },
-    mosaicking: "ORBIT"
+    mosaicking: "ORBIT",
+    upsampling: "BILINEAR",
+    downsampling: "BILINEAR"
   };
 }
 function evaluatePixel(samples) {
@@ -111,7 +115,9 @@ function setup() {
       { datasource: "sentinel-1-grd", id: "s1", bands: ["VV", "VH"] }
     ],
     output: { bands: 4 },
-    mosaicking: "ORBIT"
+    mosaicking: "ORBIT",
+    upsampling: "BILINEAR",
+    downsampling: "BILINEAR"
   };
 }
 
@@ -160,7 +166,9 @@ function setup() {
   return {
     input: [${inputBands.map(b => `'${b}'`).join(', ')}, "dataMask"],
     output: { bands: 4 },
-    mosaicking: "ORBIT"
+    mosaicking: "ORBIT",
+    upsampling: "BILINEAR",
+    downsampling: "BILINEAR"
   };
 }
 
@@ -882,6 +890,8 @@ export const INDICES = {
     },
     hpwi: {
         name: 'OBEC — Optical Brightness/Edge Contrast (legacy Oil-Brine Emulsion Composite)',
+        primaryScreener: true,
+        fieldRole: 'Primary screener for pad-scale optical contrast and flowline releases. Combines hydrocarbon NDOI with dual-SWIR salinity and surface smoothness.',
         tags: ['salinity', 'produced-water'],
         sensor: 'Sentinel-2 L2A',
         temporal: '0-3M',
@@ -1174,6 +1184,8 @@ export const INDICES = {
     },
     lbi: {
         name: 'LBI — Liquid/Salinity Response Index (formerly Liquid Brine Index)',
+        primaryScreener: true,
+        fieldRole: 'Primary screener for standing liquid brine, containment pit overflows, and crater blowouts. Bypasses bare-soil mask when standing water is detected.',
         tags: ['salinity', 'produced-water'],
         sensor: 'Sentinel-2 L2A',
         temporal: '0-3M',

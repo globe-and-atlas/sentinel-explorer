@@ -295,21 +295,15 @@ export function getGEELayer(state, config, timeStr, isDiff, overrideIndex = null
 
 export function getCOGLayer(state, config, timeStr, isDiff, overrideIndex = null) {
     const activeIdx = overrideIndex || state.activeIndex;
-    // Preserve a 10 m grid only for formulas composed exclusively of 10 m
-    // Sentinel-2 bands. SWIR/red-edge formulas are natively 20 m and gain no
-    // scientific detail from four-times-more 10 m tile requests.
-    const usesTenMeterBandsOnly = ['tc', 'truecolor', 'true-color', 'ndvi', 'savi'].includes(activeIdx);
     const layer = new RateLimitedTile(buildCogTileUrl(state, config, timeStr, isDiff, overrideIndex), {
         opacity: overrideIndex ? 0.5 : state.opacity,
         attribution: 'Public Sentinel-2 COGs / Element84 Earth Search',
-        tileSize: usesTenMeterBandsOnly ? 256 : 512,
-        zoomOffset: usesTenMeterBandsOnly ? 0 : -1,
+        tileSize: 256,
+        zoomOffset: 0,
         minZoom: 10,
         zIndex: overrideIndex ? 20 : 10,
         crossOrigin: 'anonymous',
         updateWhenIdle: true,
-        // Retina mode quarters the ground footprint of each Leaflet request and
-        // turns a typical view into ~4x as many expensive remote-COG reads.
         detectRetina: false,
         maxConcurrent: 6,
         retries: 2,
@@ -760,9 +754,28 @@ const RateLimitedWMS = L.TileLayer.WMS.extend({
         this._queue = [];
         this._active = 0;
         this._cooldownTimer = null;
-        this._maxConcurrent = options.maxConcurrent || 1;
-        this._retries = options.retries ?? 1;
-        this._retryDelay = options.retryDelay || 8000;
+        this._maxConcurrent = options.maxConcurrent || 4;
+        this._retries = options.retries ?? 2;
+        this._retryDelay = options.retryDelay || 1200;
+        this._controllers = new Set();
+        this._removed = false;
+    },
+
+    onAdd(map) {
+        this._removed = false;
+        L.TileLayer.WMS.prototype.onAdd.call(this, map);
+    },
+
+    onRemove(map) {
+        this._removed = true;
+        this._queue.length = 0;
+        this._controllers.forEach(controller => controller.abort());
+        this._controllers.clear();
+        if (this._cooldownTimer) {
+            clearTimeout(this._cooldownTimer);
+            this._cooldownTimer = null;
+        }
+        L.TileLayer.WMS.prototype.onRemove.call(this, map);
     },
 
     createTile(coords, done) {
@@ -775,11 +788,13 @@ const RateLimitedWMS = L.TileLayer.WMS.extend({
     },
 
     _enqueue(url, img, done, retriesLeft) {
+        if (this._removed) return;
         this._queue.push({ url, img, done, retriesLeft });
         this._drain();
     },
 
     _drain() {
+        if (this._removed) return;
         const cooldownRemaining = sentinelWmsCooldownUntil - Date.now();
         if (cooldownRemaining > 0) {
             if (!this._cooldownTimer) {
@@ -791,16 +806,19 @@ const RateLimitedWMS = L.TileLayer.WMS.extend({
             return;
         }
 
-        while (this._active < this._maxConcurrent && this._queue.length > 0) {
+        while (!this._removed && this._active < this._maxConcurrent && this._queue.length > 0) {
             this._active++;
             this._load(this._queue.shift());
         }
     },
 
     _load({ url, img, done, retriesLeft }) {
-        fetch(url)
+        const controller = new AbortController();
+        this._controllers.add(controller);
+        fetch(url, { signal: controller.signal })
             .then(async r => {
                 if (r.status === 429 && retriesLeft > 0) {
+                    this._controllers.delete(controller);
                     const retryDelayMs = getRetryAfterMs(
                         r,
                         this._retryDelay * Math.max(1, this._retries - retriesLeft + 1)
@@ -816,12 +834,24 @@ const RateLimitedWMS = L.TileLayer.WMS.extend({
             })
             .then(blob => {
                 if (!blob) return;
+                this._controllers.delete(controller);
+                if (this._removed) {
+                    this._release(null, img, () => {});
+                    return;
+                }
                 const objUrl = URL.createObjectURL(blob);
                 img.onload = () => { URL.revokeObjectURL(objUrl); this._release(null, img, done); };
                 img.onerror = () => { URL.revokeObjectURL(objUrl); this._release(new Error('img decode failed'), img, done); };
                 img.src = objUrl;
             })
-            .catch(e => this._release(e, img, done));
+            .catch(e => {
+                this._controllers.delete(controller);
+                if (e?.name === 'AbortError' || this._removed) {
+                    this._release(null, img, () => {});
+                    return;
+                }
+                this._release(e, img, done);
+            });
     },
 
     _release(err, img, done) {
@@ -888,9 +918,9 @@ export function getWMSLayer(state, config, timeStr, isDiff, overrideIndex = null
         updateWhenIdle: true,
         updateWhenZooming: false,
         keepBuffer: 0,
-        maxConcurrent: 1,
-        retries: 1,
-        retryDelay: 10000
+        maxConcurrent: 4,
+        retries: 2,
+        retryDelay: 1200
     });
 
     layer.on('tileerror', (error) => {

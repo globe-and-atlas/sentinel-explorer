@@ -1417,14 +1417,40 @@ function bindEvents() {
     // Compare Layout Toggle
     const btnSwipe = document.getElementById('btn-swipe');
     const btnDiff = document.getElementById('btn-diff');
-    const btnCumulative = document.getElementById('btn-cumulative'); // Added this line
-    if (btnSwipe && btnDiff && btnCumulative) { // Modified condition
+function getAutoBaselineDate(activeDateStr, targetDaysBack = 30) {
+    if (!activeDateStr) return '';
+    const activeTime = new Date(activeDateStr).getTime();
+    if (isNaN(activeTime)) return '';
+    const targetTime = activeTime - (targetDaysBack * 86400 * 1000);
+    const selectT1 = document.getElementById('date-t1');
+    if (!selectT1 || !selectT1.options.length) return '';
+
+    let bestValue = '';
+    let minDiff = Infinity;
+    for (let i = 0; i < selectT1.options.length; i++) {
+        const val = selectT1.options[i].value;
+        if (!val || val.includes('/')) continue;
+        const optTime = new Date(val).getTime();
+        if (isNaN(optTime) || optTime >= activeTime) continue;
+        const diff = Math.abs(optTime - targetTime);
+        if (diff < minDiff) {
+            minDiff = diff;
+            bestValue = val;
+        }
+    }
+    return bestValue || (selectT1.options[0] ? selectT1.options[0].value : '');
+}
+
+    const btnCumulative = document.getElementById('btn-cumulative');
+    const btnAutoBaseline = document.getElementById('btn-auto-baseline');
+    if (btnSwipe && btnDiff && btnCumulative) {
         document.getElementById('btn-swipe').addEventListener('click', () => {
             state.compareType = 'swipe';
             state.activeEvidenceComparison = '';
             document.getElementById('btn-swipe').classList.add('active');
             document.getElementById('btn-diff').classList.remove('active');
             document.getElementById('btn-cumulative').classList.remove('active');
+            if (btnAutoBaseline) btnAutoBaseline.classList.remove('active');
             updateWorkflowTemporalStatus();
             applyIndex();
         });
@@ -1435,6 +1461,7 @@ function bindEvents() {
             document.getElementById('btn-diff').classList.add('active');
             document.getElementById('btn-swipe').classList.remove('active');
             document.getElementById('btn-cumulative').classList.remove('active');
+            if (btnAutoBaseline) btnAutoBaseline.classList.remove('active');
             updateWorkflowTemporalStatus();
             applyIndex();
         });
@@ -1445,6 +1472,37 @@ function bindEvents() {
             document.getElementById('btn-cumulative').classList.add('active');
             document.getElementById('btn-swipe').classList.remove('active');
             document.getElementById('btn-diff').classList.remove('active');
+            if (btnAutoBaseline) btnAutoBaseline.classList.remove('active');
+            updateWorkflowTemporalStatus();
+            applyIndex();
+        });
+    }
+
+    if (btnAutoBaseline) {
+        btnAutoBaseline.addEventListener('click', () => {
+            if (isCogProviderActive()) {
+                showToast('Auto-Baseline Δ change detection requires Sentinel Hub. Switch provider or arm Sentinel tiles to run.', 'warning');
+                return;
+            }
+            const dateT2Select = document.getElementById('date-t2');
+            const dateT1Select = document.getElementById('date-t1');
+            const activeT2 = dateT2Select?.value || ALL_DATES[state.monthIndex]?.value || '';
+            const autoT1 = getAutoBaselineDate(activeT2, 30);
+            if (autoT1 && dateT1Select) {
+                dateT1Select.value = autoT1;
+            }
+            state.compareType = 'diff';
+            state.activeEvidenceComparison = `Auto Baseline Δ (${autoT1} vs ${activeT2})`;
+            
+            const swipeBtn = document.getElementById('btn-swipe');
+            const diffBtn = document.getElementById('btn-diff');
+            const cumBtn = document.getElementById('btn-cumulative');
+            if (swipeBtn) swipeBtn.classList.remove('active');
+            if (diffBtn) diffBtn.classList.add('active');
+            if (cumBtn) cumBtn.classList.remove('active');
+            btnAutoBaseline.classList.add('active');
+
+            showToast(`Auto-Baseline Δ Active: T2 (${activeT2}) vs 30-day baseline T1 (${autoT1}). Static caliche & well pads cancel out.`, 'info');
             updateWorkflowTemporalStatus();
             applyIndex();
         });

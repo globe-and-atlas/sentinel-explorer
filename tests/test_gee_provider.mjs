@@ -96,7 +96,7 @@ assert.match(map, /state\.map\.fire\('sentinelguard'/, 'Sentinel guard should an
 assert.match(map, /function getRetryAfterMs/, 'Sentinel WMS loader should honor Retry-After cooldowns');
 assert.match(map, /state\.map\.fire\('sentinelratelimit'/, 'Sentinel WMS loader should announce 429 cooldowns');
 assert.match(map, /tileSize:\s*512/, 'Sentinel WMS tiles should use larger tiles to reduce request count');
-assert.match(map, /maxConcurrent:\s*1/, 'Sentinel WMS tiles should avoid bursty parallel requests');
+assert.match(map, /maxConcurrent:\s*4/, 'Sentinel WMS tiles should support parallel tile loading');
 for (const key of ['tc', 'swir_rgb', 'awei', 'ndre', 'ndmi', 'ndwi', 'ndvi', 'savi', 'bsi', 'ndsi', 'si', 'csi', 'hcai', 'hmri', 'ndoi', 'pwi', 'hpwi', 'pwoi', 'lbi']) {
   assert.match(app, new RegExp(`COG_SUPPORTED_INDEX_KEYS[\\s\\S]*['\"]${key}['\"]`), `COG UI should expose renderer-supported ${key}`);
 }
@@ -118,7 +118,7 @@ assert.match(map, /\/api\/cog\/tiles/, 'map should route COG tiles to the COG en
 assert.match(map, /Public Sentinel-2 COGs \/ Element84 Earth Search/, 'COG attribution should be visible on tiles');
 assert.match(map, /fire\('tileloadfinish', \{ layer: activeIdx \}\)/, 'tile completion events should identify the selected lens');
 assert.match(map, /onRemove\(map\)[\s\S]*controller\.abort\(\)/, 'removed COG layers should abort stale in-flight tile requests');
-assert.match(map, /usesTenMeterBandsOnly[\s\S]*tileSize:\s*usesTenMeterBandsOnly\s*\?\s*256\s*:\s*512[\s\S]*zoomOffset:\s*usesTenMeterBandsOnly\s*\?\s*0\s*:\s*-1/, 'COG layers should render SWIR and red-edge formulas on their native 20 m grid');
+assert.match(map, /getCOGLayer[\s\S]*tileSize:\s*256[\s\S]*zoomOffset:\s*0/, 'COG layers should render smooth 1:1 256px tiles without 2x DOM stretching');
 assert.match(map, /getCOGLayer[\s\S]*detectRetina:\s*false[\s\S]*maxConcurrent:\s*6/, 'COG layers should avoid Retina request multiplication and load the active view concurrently');
 assert.match(map, /export function getGEELayer/, 'map should provide a GEE tile layer');
 assert.match(map, /\/api\/gee\/tiles/, 'map should keep the GEE endpoint available');
