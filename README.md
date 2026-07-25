@@ -1,4 +1,17 @@
-# Sentinel Explorer
+# Limn
+
+Two browser-based Copernicus research tools sharing one codebase:
+
+| App | Entry | Scope | Docs |
+|---|---|---|---|
+| **Limn Produced Water** | `index.html` | Produced-water spectral screening in the Permian Basin | this file |
+| **Limn Atlas** | `atlas.html` | 91 environmental index specifications across 12 domains | [ATLAS.md](ATLAS.md) |
+
+The two are deliberately separate: Atlas contains no produced-water formulas, and Limn's produced-water validation does not extend to Atlas overlays.
+
+---
+
+## Limn Produced Water
 
 A browser-based research and screening tool for studying produced-water-related spectral anomalies at oil and gas sites in the Permian Basin, West Texas and New Mexico.
 
@@ -17,7 +30,7 @@ Built on free Copernicus satellite data (Sentinel-2 optical + Sentinel-1 SAR), i
 
 **Current scientific status (2026-07-21):** PWCI, ASAI, and OBEC are experimental screening architectures, not validated detectors. The development pipeline paired recall of 81.5% / 77.8% / 66.7% with background activation of 96.7% / 71.3% / 71.3%. The shipped precision-first viewer produced 0/150 background activations but was also blank at all 11 reviewed positive sites. A 1,224-combination threshold sweep found no useful produced-water/caliche separation at the tested 500 m single-scene support. LBI's 2/4 standing-brine versus 0/3 freshwater result is preliminary (two-sided Fisher exact p≈0.43). See [the current status note](knowledge/domain/scientific-status-2026-07-20.md) and [investigation summary](reports/investigation_summary_2026-07-20.md).
 
-**Limn Atlas is separate:** `atlas.html` organizes 91 documented environmental methods into 24 capability families. The default view shows primary methods, variants, components, and references; the Research view separates 51 future models and two retired formulas. Atlas bookmarks and rendered overlays are inspectable context, not extensions of Limn's produced-water validation.
+**Limn Atlas is documented separately.** `atlas.html` organizes 91 proposed environmental index specifications into 24 capability families across twelve domains — 37 render live, 16 are executable but non-live, 38 are specified concepts or retired formulas. It is published as the *Global Spectral Index Atlas* preprint. Atlas overlays are inspectable context, not extensions of Limn's produced-water validation. **See [ATLAS.md](ATLAS.md).**
 
 ---
 
@@ -154,7 +167,7 @@ See [SENTINEL_SCIENCE_GUIDE.md](SENTINEL_SCIENCE_GUIDE.md) for the full scientif
 
 - **Sentinel-2 L2A (optical):** 13 spectral bands, 10–60m resolution, 5-day revisit, free via CDSE
 - **Sentinel-1 GRD (SAR):** VV/VH polarization, C-band (~5.5 cm), 5×20m, cloud-penetrating
-- **TRRC (Texas Railroad Commission):** Public source for the 27-record produced-water working set used in pipeline validation (coordinates generalized per RRC data policy; development benchmark, not an audited registry)
+- **TRRC (Texas Railroad Commission):** Public source for the produced-water working set (coordinates generalized per RRC data policy; development benchmark, not an audited registry). `data/rrc_spills.json` holds **32** incident records. The 2026-03-28 index run resolved usable statistics for **27** of them; the 1,224-combination threshold sweep uses all **32**. Quote the number that matches the analysis you mean.
 - **Archive depth:** Sentinel-2A launched June 2015 — full history available
 
 ---
@@ -162,7 +175,8 @@ See [SENTINEL_SCIENCE_GUIDE.md](SENTINEL_SCIENCE_GUIDE.md) for the full scientif
 ## Key files
 
 ```
-index.html           # App entry point (no build step)
+index.html           # Produced Water entry point (no build step)
+atlas.html           # Limn Atlas entry point — see ATLAS.md
 config.example.js    # Credential template — copy to config-v1.js and fill in
 src/
   app.js             # Map init, WMS layers, spill bookmarks
@@ -175,6 +189,7 @@ src/
 execution/           # Python scripts for batch analysis and threshold optimization
 tests/               # Node test scripts for evalscript and API validation
 SENTINEL_SCIENCE_GUIDE.md   # Scientific reference, formula boundaries, SAR physics, and validation status
+ATLAS.md                    # Limn Atlas: registry structure, formula schema, evidence model
 ```
 
 ---
@@ -182,7 +197,18 @@ SENTINEL_SCIENCE_GUIDE.md   # Scientific reference, formula boundaries, SAR phys
 ## Tests
 
 ```bash
-node tests/test.js          # Index formula sanity checks
-node tests/test_fetch.js    # WMS tile fetch test
-node tests/test_pwi.js      # PWI evalscript validation
+npm run test:core:parity        # Formula parity between renderers
+npm run test:core:ui            # UI contract
+npm run test:science-status     # Status language does not overclaim
+npm run test:spill:timeline     # Spill evidence timeline
+npm run test:cog:visibility     # COG screening visibility
+npm run test:cog:gates          # Gate diagnostics
+
+node tests/test_produced_water_rendering.mjs
+node tests/test_date_selector_filter.mjs
+python3 tests/test_cog_boa_offset.py     # Sentinel-2 baseline-04.00 offset handling
 ```
+
+Atlas has its own suite — see [ATLAS.md](ATLAS.md#tests).
+
+Python tests need the project venv (`.venv/bin/python3`); `rasterio` is not in the system interpreter.
