@@ -1,3 +1,17 @@
+// Authorship notes for Atlas records that have an explicit claim written.
+//
+// Alignment with GSIA preprint v2 (ESS Open Archive, July 2026):
+//   * Priority is recorded as NOT ESTABLISHED for every record until an
+//     entry-level prior-art dossier exists. The `level` and `strength` fields
+//     below are the author's private confidence notes from the v1 era. They are
+//     NOT rendered in the interface and must not be quoted as priority
+//     evidence — see `renderAuthorshipClaim()` in src/atlas-app.js.
+//   * Several `claim` strings describe the PROPOSED workflow (persistence,
+//     proximity weighting, ring-pattern scoring, multi-date change). The live
+//     layers are single-scene and per-pixel. Read each claim against the
+//     record's `implementedFormula`, not its `proposedFormula`.
+//   * Records without an entry here render the registry-wide default claim, so
+//     all 91 are covered without inventing per-record claims.
 export const authorshipClaims = {
   bhdfsi: {
     level: "Strong workflow claim",
@@ -20,12 +34,19 @@ export const authorshipClaims = {
     doNotClaim: "This composite does not assert invention of the Floating Debris Index, marine debris mapping, or plastic detection from satellites in general.",
     why: "The original piece is the operational differentiation workflow: polymer-like debris versus common floating false positives."
   },
+  // Retained for traceability only. MVPI is a Limn legacy record and is not one
+  // of the 91 GSIA entries. Its former "Very High" strength contradicted two
+  // things the project already recorded: the July 2026 threshold sweep found no
+  // useful produced-water/caliche separation at the tested single-scene support,
+  // and Varon et al. (2021) is established prior art for Sentinel-2 methane
+  // plume retrieval. Downgraded rather than deleted, per the registry rule that
+  // negative and superseded results stay visible.
   mvpi: {
-    level: "Strong multi-gate gas absorption claim",
-    strength: "Very High",
-    claim: "The original contribution is MVPI as a methane super-emitter screening workflow that pairs SWIR gas absorption ratios (B11/B12) with explicit high-albedo soil brightness gates, and water/vegetation rejection gates to isolate venting plumes.",
-    doNotClaim: "This composite does not assert direct chemical concentration measurement, active wellhead pressure measurement, or first use of SWIR ratio techniques for methane mapping in general.",
-    why: "The original contribution resides in packaging the complex physics of SWIR gas absorption into a deterministic, threshold-gated Permian oilfield decision product that suppresses caliche pad noise."
+    level: "Superseded claim; retained for traceability",
+    strength: "Not asserted",
+    claim: "MVPI is a legacy single-scene SWIR ratio screen (B11/B12) with brightness and water/vegetation rejection gates. No priority or performance claim is made for it.",
+    doNotClaim: "This composite does not measure methane concentration, detect plumes, identify super-emitters, or establish priority over published Sentinel-2 methane retrieval methods (Varon et al., 2021). A threshold sweep found no useful separation at the tested support.",
+    why: "Superseded by the negative result recorded in the project's scientific-status notes; kept so the failure stays inspectable rather than disappearing."
   },
   ttapi: {
     level: "Distinct synthesis claim",

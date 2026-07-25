@@ -37,6 +37,22 @@ ORIGIN_SHIFT = 20037508.342789244
 CLEAR_SCL_CLASSES = {4, 5, 6, 7}
 ITEM_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 
+# ESA Sentinel-2 processing baseline 04.00 (operational 2022-01-25) introduced
+# BOA_ADD_OFFSET = -1000 for L2A. Physical reflectance is therefore
+#   rho = (DN + BOA_ADD_OFFSET) / QUANTIFICATION_VALUE = (DN - 1000) / 10000
+# for baseline >= 04.00, and DN / 10000 before it. Earth Search serves raw ESA
+# DN, so the offset must be applied here. Sentinel Hub applies the equivalent
+# correction itself (harmonizeValues defaults to true), so omitting it made the
+# COG provider read ~0.1 reflectance high on any post-2022-01-25 scene relative
+# to the WMS provider. An additive offset does NOT cancel in (a-b)/(a+b), so
+# this biased every normalized ratio, not only the absolute-threshold indices.
+QUANTIFICATION_VALUE = 10000.0
+BOA_ADD_OFFSET = -1000.0
+BASELINE_0400_DATE = datetime(2022, 1, 25, tzinfo=timezone.utc)
+# Bump when the reflectance conversion changes, so cached STAC items captured
+# under the old logic are not reused.
+ITEM_CACHE_SCHEMA = 2
+
 BAND_ASSETS = {
     "B02": "blue",
     "B03": "green",
@@ -140,6 +156,7 @@ def target_date(time_value: str) -> datetime:
 
 def item_cache_key(stac_url: str, collection: str, bounds: TileBounds, time_value: str, maxcc: float) -> str:
     payload = {
+        "schema": ITEM_CACHE_SCHEMA,
         "stac_url": stac_url,
         "collection": collection,
         "bbox": [round(value, 6) for value in bounds.lonlat],
@@ -166,11 +183,38 @@ def store_cached_item(cache_dir: Path, key: str, item_info: dict) -> None:
     (cache_dir / f"{key}.json").write_text(json.dumps(item_info, sort_keys=True))
 
 
+def resolve_boa_offset(properties: dict, acquired: datetime | None) -> float:
+    """Return the additive DN offset to apply before dividing by QUANTIFICATION_VALUE.
+
+    Preference order:
+      1. `earthsearch:boa_offset_applied` — if the archive already applied the
+         offset to the COG pixels, applying it again would double-correct.
+      2. `s2:processing_baseline` — the authoritative ESA baseline string.
+      3. Acquisition date vs the 04.00 operational cutover (last-resort fallback
+         for items or caches lacking both properties).
+    """
+    if properties.get("earthsearch:boa_offset_applied") is True:
+        return 0.0
+
+    baseline = properties.get("s2:processing_baseline")
+    if baseline is not None:
+        try:
+            return BOA_ADD_OFFSET if float(baseline) >= 4.0 else 0.0
+        except (TypeError, ValueError):
+            pass
+
+    if acquired is not None:
+        return BOA_ADD_OFFSET if acquired >= BASELINE_0400_DATE else 0.0
+    return 0.0
+
+
 def item_to_info(item) -> dict:
     return {
         "id": item.id,
         "cloud": item.properties.get("eo:cloud_cover"),
         "datetime": item.datetime.isoformat() if item.datetime else None,
+        "processing_baseline": item.properties.get("s2:processing_baseline"),
+        "boa_offset": resolve_boa_offset(item.properties, item.datetime),
         "assets": {band: item.assets[asset_key].href for band, asset_key in BAND_ASSETS.items()},
     }
 
@@ -229,11 +273,34 @@ def read_asset(href: str, bounds_mercator: tuple[float, float, float, float], si
     return np.ma.filled(data, 0)
 
 
+def item_boa_offset(item: dict) -> float:
+    """Offset for an already-serialized item dict (fresh or cached)."""
+    if item.get("boa_offset") is not None:
+        return float(item["boa_offset"])
+    acquired = None
+    if item.get("datetime"):
+        try:
+            acquired = datetime.fromisoformat(str(item["datetime"]).replace("Z", "+00:00"))
+            if acquired.tzinfo is None:
+                acquired = acquired.replace(tzinfo=timezone.utc)
+        except ValueError:
+            acquired = None
+    properties = {}
+    if item.get("processing_baseline") is not None:
+        properties["s2:processing_baseline"] = item["processing_baseline"]
+    return resolve_boa_offset(properties, acquired)
+
+
 def read_bands(item: dict, needed_bands: Iterable[str], bounds: TileBounds, size: int) -> tuple[dict[str, np.ndarray], np.ndarray]:
     arrays: dict[str, np.ndarray] = {}
+    offset = item_boa_offset(item)
     for band in needed_bands:
         href = item["assets"][band]
-        arrays[band] = read_asset(href, bounds.mercator, size, Resampling.bilinear).astype("float32") / 10000.0
+        raw = read_asset(href, bounds.mercator, size, Resampling.bilinear).astype("float32")
+        # Nodata reads back as 0; keep it at 0 so the validity mask below still
+        # sees it as empty rather than turning it into a negative reflectance.
+        filled = raw > 0
+        arrays[band] = np.where(filled, (raw + offset) / QUANTIFICATION_VALUE, 0.0)
 
     scl = read_asset(item["assets"]["SCL"], bounds.mercator, size, Resampling.nearest).astype("uint8")
     clear = np.isin(scl, list(CLEAR_SCL_CLASSES))

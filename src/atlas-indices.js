@@ -7,7 +7,7 @@
 
 const genEvalscript = (bands, logic) => `//VERSION=3
 function setup() {
-  return { input: [${bands.map(b=>`'${b}'`).join(', ')}, "dataMask"], output: { bands: 4 } };
+  return { input: [${bands.map(b=>`'${b}'`).join(', ')}, "dataMask"], output: { bands: 4 }, upsampling: "BILINEAR", downsampling: "BILINEAR" };
 }
 function evaluatePixel(sample) {
   if (sample.dataMask === 0) return [0,0,0,0];
@@ -286,10 +286,10 @@ const RAW_ATLAS_INDICES = [
   justification: 'Peak-signal proof target for live-fuel moisture stress: fire-prone Angeles National Forest chaparral during the peak summer dry period of the historic 2021 drought. Open water and non-fuel surfaces are explicitly masked out.',
   evalscript: genEvalscript(['B03','B04','B8A','B11'],`
   let ndmi=(sample.B8A-sample.B11)/(sample.B8A+sample.B11+0.001);
-  let ndvi=(sample.B8A-sample.B04)/(sample.B8A+sample.B04+0.001);
+  let ndviB8A=(sample.B8A-sample.B04)/(sample.B8A+sample.B04+0.001);
   let mndwi=(sample.B03-sample.B11)/(sample.B03+sample.B11+0.001);
-  let waterReject=(mndwi>0.15&&ndvi<0.25)?0:1;
-  let liveFuel=(ndvi>0.28&&sample.B8A>sample.B04&&sample.B11>0.04)?1:0;
+  let waterReject=(mndwi>0.15&&ndviB8A<0.25)?0:1;
+  let liveFuel=(ndviB8A>0.28&&sample.B8A>sample.B04&&sample.B11>0.04)?1:0;
   let risk=Math.max(0,Math.min(1,(1-ndmi)*0.5))*waterReject*liveFuel;
   if(risk<=0)return[0,0,0,0];
   return ${cb('risk',[
@@ -457,10 +457,10 @@ const RAW_ATLAS_INDICES = [
   sourceUrl: 'https://water.ca.gov/News/Blog/2023/Mar-23/DWR-Supports-Flood-Fight-Efforts-at-Pajaro-River-Levee-Break',
   justification: 'Targets the Pajaro River floodplain one week after the March 2023 levee breach, aligning the erosion-delivery bookmark with a site-specific flood-fight and sediment-response source.',
   evalscript: genEvalscript(['B03','B04','B08','B11'],`
-  let bsi=sample.B11>0.2&&sample.B04>sample.B08?1:0;
+  let bareGate=sample.B11>0.2&&sample.B04>sample.B08?1:0;
   let turb=(sample.B04-sample.B03)/(sample.B04+sample.B03+0.001);
   let water=sample.B11<sample.B03?1:0;
-  let val=Math.max(0,bsi*0.5+turb*water*3);
+  let val=Math.max(0,bareGate*0.5+turb*water*3);
   return ${cb('Math.min(1,val)',P.silt)};`)
 },
 {
@@ -1368,10 +1368,10 @@ const RAW_ATLAS_INDICES = [
   source: 'FAO desert locust crisis response page',
   sourceUrl: 'https://www.fao.org/emergencies/where-we-work/desert-locust-crisis/',
   justification: 'Targets the dry rangelands of eastern Ethiopia. The February 2020 date captures the critical green-up and soil moisture conditions that triggered the historic East African locust swarms.',
-  evalscript: genEvalscript(['B03','B04','B08','B11'],`
+  evalscript: genEvalscript(['B02','B03','B04','B08','B11'],`
   let ndvi=(sample.B08-sample.B04)/(sample.B08+sample.B04+0.001);
   let ndwi=(sample.B03-sample.B08)/(sample.B03+sample.B08+0.001);
-  let bsi=((sample.B11+sample.B04)-(sample.B08+sample.B03))/((sample.B11+sample.B04)+(sample.B08+sample.B03)+0.001);
+  let bsi=((sample.B11+sample.B04)-(sample.B08+sample.B02))/((sample.B11+sample.B04)+(sample.B08+sample.B02)+0.001);
   let sparse=ndvi>0.05&&ndvi<0.35?1:0;
   let moist=ndwi>-0.3&&ndwi<0.1?1:0;
   let val=sparse*moist*Math.max(0,bsi+0.1)*5;
@@ -1810,8 +1810,35 @@ const FORMULA_V2_OVERRIDES = {
   },
   smpdi: {
     name: 'Floating-Material Spectral Contrast',
-    physics: 'The live feature combines a floating-algae-style baseline residual with NIR/SWIR contrast and water/land gates. Sargassum-versus-plastic discrimination has not been independently evaluated.',
-    benefit: 'Candidate feature for labeled floating-material classification against established FDI baselines.',
+    platform: 'Sentinel-2',
+    platformShort: 'S2',
+    requiredInputs: ['Sentinel-2 L2A'],
+    implementedFormula: 'WaterGate × LandReject × [FAI_B12baseline − ((B8A−B11)/(B8A+B11))]',
+    proposedFormula: 'Polymer-versus-biomass discrimination using imaging spectroscopy (e.g. EMIT) with labeled floating-material references',
+    physics: 'The live feature combines a floating-algae-style baseline residual with NIR/SWIR contrast and water/land gates. The baseline is interpolated B04→B12 rather than the B04→B11 pairing used in common Sentinel-2 FAI implementations, so it is an FAI variant and not the canonical index. Sargassum-versus-plastic discrimination has not been independently evaluated, and the live layer uses no EMIT data.',
+    benefit: 'Candidate feature for labeled floating-material classification against established FDI baselines (Biermann et al., 2020).',
+  },
+  owsi: {
+    name: 'Oil-Related Surface Contrast Proxy',
+    platform: 'Sentinel-2',
+    platformShort: 'S2',
+    requiredInputs: ['Sentinel-2 L2A'],
+    formula: 'max(0, NDOI) × max(0, B11/B12 − 0.8) × 2',
+    implementedFormula: 'max(0, (B02−B12)/(B02+B12)) × max(0, B11/B12 − 0.8) × 2',
+    proposedFormula: 'Weathering-stage classification from imaging spectroscopy (e.g. EMIT) with sampled oil-age references',
+    physics: 'The live layer is a blue/SWIR2 contrast scaled by a SWIR1:SWIR2 ratio. "NDOI" is a legacy broad-band contrast name, not a hydrocarbon retrieval, and the ratio term is not a calibrated weathering clock. The live layer uses no EMIT data.',
+    benefit: 'Surface-contrast context over water for selecting oil-incident scenes for review; it does not establish oil presence, thickness, or age.',
+  },
+  npdefi: {
+    name: 'Red-Edge and SWIR Crop Contrast Proxy',
+    platform: 'Sentinel-2',
+    platformShort: 'S2',
+    requiredInputs: ['Sentinel-2 L2A'],
+    formula: 'VegGate × {[(B04−B05)/(B04+B05)] − [(B12−B11)/(B12+B11)]}',
+    implementedFormula: 'I[NDVI>0.2] × clip({[(B04−B05)/(B04+B05)] − [(B12−B11)/(B12+B11)]} + 0.5, 0, 1)',
+    proposedFormula: 'Nitrogen-versus-phosphorus discrimination calibrated to measured tissue nutrient concentrations, with crop, cultivar, phenology, and soil-background strata',
+    physics: 'The live layer differences a red/red-edge contrast against a SWIR2/SWIR1 contrast over vegetated pixels. The red-edge term responds to chlorophyll status, but the SWIR term tracks canopy water and dry-matter (cellulose/lignin) absorption — it is not an anthocyanin signal, because anthocyanins absorb near 500–550 nm and have no SWIR2 feature. The separation of nitrogen from phosphorus limitation is therefore hypothesized, not demonstrated, and the live layer uses no EnMAP data.',
+    benefit: 'Candidate crop-stress contrast for experiments with measured nutrient data; it does not identify which nutrient is limiting.',
   },
   cbsdi: {
     name: 'Coral Brightness Context Proxy',
@@ -1958,10 +1985,13 @@ const FORMULA_V2_OVERRIDES = {
   },
   sabsi: {
     name: 'Bright-Snow Red-Green Context',
+    platform: 'Sentinel-2',
+    platformShort: 'S2',
+    requiredInputs: ['Sentinel-2 L2A'],
     formula: 'BrightSnowGate × max[0, (B04−B03)/(B04+B03)+0.05] × 10',
     implementedFormula: 'I[B02>0.4 and B03>0.4] × max[0, (B04−B03)/(B04+B03)+0.05] × 10',
-    proposedFormula: 'SnowMask × pigment model calibrated to algae abundance and impurities',
-    physics: 'The live code uses visible-band brightness rather than NDSI and cannot uniquely attribute red snow to algae.',
+    proposedFormula: 'SnowMask × pigment model calibrated to algae abundance and impurities, with higher-cadence imagery (e.g. Planet) for bloom timing',
+    physics: 'The live code uses visible-band brightness rather than NDSI and cannot uniquely attribute red snow to algae. The absolute brightness gates (B02, B03 > 0.4) assume offset-corrected surface reflectance. The live layer uses no Planet data.',
     benefit: 'Red/green spectral context over bright snow for field-reviewed algae studies.',
   },
   pwtdi: {
@@ -1976,8 +2006,25 @@ const FORMULA_V2_OVERRIDES = {
   },
   mhssp: {
     name: 'Open Anoxic-Surface Context Proxy',
-    physics: 'The live formula identifies wet, low-vegetation, low-red-edge surfaces. It does not measure methane flux or identify emission hotspots.',
+    platform: 'Sentinel-2',
+    platformShort: 'S2',
+    requiredInputs: ['Sentinel-2 L2A'],
+    formula: 'max(0,NDWI) × max(0, 0.3−NDVI) × max(0, 0.1−CI_rededge) × 20',
+    implementedFormula: 'max(0,NDWI) × max(0, 0.3−NDVI) × max(0, 0.1−(B05−B04)/(B05+B04)) × 20',
+    proposedFormula: 'Surface-context features combined with an atmospheric methane retrieval (e.g. TROPOMI) and plume-transport modelling',
+    physics: 'The live formula identifies wet, low-vegetation, low-red-edge surfaces. The red-edge term is a fixed threshold, not the advertised normalization against a local maximum. It does not measure methane flux or identify emission hotspots, and the live layer uses no TROPOMI data.',
     benefit: 'Candidate surface-context feature for studies with chamber, tower, or atmospheric methane measurements.',
+  },
+  mepsi: {
+    name: 'Open Shallow-Water Pond Context',
+    platform: 'Sentinel-2',
+    platformShort: 'S2',
+    requiredInputs: ['Sentinel-2 L2A'],
+    formula: 'PondGate × max(0, NDWI) × 3',
+    implementedFormula: 'I[NDWI>0.1 and NDVI<0.15 and NDCI<0.05] × max(0, NDWI) × 3',
+    proposedFormula: 'Ebullition-pond identification calibrated to measured methane flux, with higher-cadence imagery (e.g. Planet) for pond dynamics',
+    physics: 'The live layer gates on open water with low vegetation and low red-edge chlorophyll contrast. The third term is NDCI, a chlorophyll-a water index, used here as a bare-water proxy rather than a macrophyte measurement. Ebullition is not observed, and the live layer uses no Planet data.',
+    benefit: 'Selects open, low-productivity ponds as candidate sites for flux measurement.',
   },
   tfidi: {
     name: 'Single-Date Tidal-Zone Wetness Context',
@@ -1988,8 +2035,43 @@ const FORMULA_V2_OVERRIDES = {
     benefit: 'Selects likely tidal-transition surfaces for a hydroperiod time-series analysis.',
     bookmark: { date: '2021-08-17' },
   },
+  dlpehi: {
+    name: 'Sparse-Vegetation and Bare-Soil Dryland Context',
+    platform: 'Sentinel-2',
+    platformShort: 'S2',
+    requiredInputs: ['Sentinel-2 L2A'],
+    formula: 'SparseVegGate × MoistureGate × max(0, BSI + 0.1) × 5',
+    implementedFormula: 'I[0.05<NDVI<0.35] × I[−0.3<NDWI<0.1] × max(0, BSI + 0.1) × 5',
+    proposedFormula: 'Oviposition-habitat model combining soil moisture, sparse-vegetation cover, and soil texture with a rainfall gate (e.g. GPM) and validated against ground locust survey records',
+    physics: 'The live layer gates on a sparse-vegetation NDVI window and an intermediate NDWI window, then scales a standard bare-soil index. The advertised NDTI texture term is NOT implemented — NDTI requires B12, which this script does not load — and a BSI bare-soil contrast stands in for it. The NDVI window is 0.05–0.35 as coded, not the 0.1–0.3 previously advertised, and NDWI acts as a gate rather than a multiplicative factor. There is no rainfall input, so no GPM data is used.',
+    benefit: 'Dryland surface-context screening. Locust habitat or outbreak warning requires rainfall history, soil texture, and ground survey confirmation.',
+  },
+  lisi: {
+    name: 'Canopy NIR/SWIR Structural Contrast',
+    formula: '2.5 × [(B08−B11)/(B08+B11+6B04−7.5B02+1)] × (B08/B11)',
+    implementedFormula: '2.5 × [(B08−B11)/(B08+B11+6B04−7.5B02+1)] × (B08/B11)',
+    proposedFormula: 'Liana-infestation mapping calibrated to crown-level infestation labels with geographically blocked evaluation',
+    physics: 'The live layer scales a NIR/SWIR difference by an EVI-style denominator and a NIR:SWIR1 ratio. The denominator includes a B11 term that earlier documentation omitted, so it is not the EVI denominator despite the similar shape; the expression is an EVI-inspired structural contrast rather than EVI applied to lianas. Liana-versus-tree separation is hypothesized, not demonstrated.',
+    benefit: 'Low-cost canopy-structure contrast to be evaluated against crown-level liana labels and prior UAV/airborne work (Waite et al., 2019; Chandler et al., 2021).',
+  },
   ipvsi: {
+    name: 'Dense-Canopy Red-Edge Ratio Context',
+    formula: 'DenseCanopyGate × max(0, NDRE/NDVI − 0.5) × 3',
+    implementedFormula: 'I[NDVI>0.6 and NDRE>0.3] × max(0, NDRE/NDVI − 0.5) × 3',
+    proposedFormula: 'Seasonal multi-date Phragmites discrimination calibrated to mapped stands of invasive and native marsh vegetation',
+    physics: 'The live layer is single-date, not seasonal. It gates on dense green canopy and displays the red-edge-to-NDVI ratio above a fixed offset. Dense monoculture and species-diverse marsh are not separated by this expression alone; the ratio responds to canopy density and chlorophyll, which many wetland species share.',
+    benefit: 'Selects dense-canopy wetland patches for field or multi-date review; it does not identify Phragmites or any other species.',
+    temporalOperator: 'Single-scene; proposed workflow requires a seasonal series',
     bookmark: { date: '2021-09-01' },
+  },
+  wvtdi: {
+    name: 'Wetland Vegetation-Water Balance Context',
+    formula: 'WetVegGate × [0.6 × NDVI + 0.4 × max(0, NDWI + 0.2)]',
+    implementedFormula: 'I[NDWI>−0.2 and NDVI>0.2] × [0.6 × NDVI + 0.4 × max(0, NDWI + 0.2)]',
+    proposedFormula: 'Multi-date wetland vegetation-type classification calibrated to surveyed sedge, rush, forb, and reed communities',
+    physics: 'The live layer is a single-date weighted sum of greenness and wetness inside a wet-vegetation gate. It produces a continuous vegetation-water balance score, not a vegetation-type class, and the weights are unfitted design choices rather than calibrated coefficients.',
+    benefit: 'Continuous wetland vegetation-water context for stratifying field survey effort.',
+    temporalOperator: 'Single-scene; proposed workflow requires a multi-date series',
   },
   wdptzi: {
     name: 'Peat Moisture Transition Proxy',

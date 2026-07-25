@@ -13,6 +13,7 @@ import {
 import { SAR_DEMO_INDICES, SAR_DEMO_DOMAIN } from './atlas-sar-demos.js?v=2';
 import { S5P_DEMO_INDICES, S5P_DEMO_DOMAIN } from './atlas-s5p-demos.js?v=2';
 import { countsAsAtlasCitation, getAtlasEvidence, getAtlasTrust } from './atlas-evidence.js?v=4';
+import { authorshipClaims } from './authorshipClaims.js?v=1';
 import { getCDSEToken } from './auth.js';
 import { fetchValidSentinelDates } from './sentinel-catalog.js';
 
@@ -482,6 +483,38 @@ function bandsLabel(idx) {
   }
   const bands = indexBands(idx);
   return bands.length ? bands.join(', ') : '—';
+}
+
+// GSIA v2 records priority as "not established" until an entry-level prior-art
+// dossier exists. Records with an explicit claim show it; the rest show that
+// default rather than an invented claim, so all 91 are covered honestly.
+const DEFAULT_AUTHORSHIP_CLAIM =
+  'No entry-level priority claim is made. GSIA documents this record as a versioned, inspectable '
+  + 'specification; scientific priority is not asserted and remains subject to entry-level prior-art review.';
+const DEFAULT_DO_NOT_CLAIM =
+  'This record does not assert invention of its component indices, first use of its band combination, '
+  + 'or any validated detection capability. It has not been independently evaluated (below V1).';
+
+function renderAuthorshipClaim(index) {
+  const claimEl = document.getElementById('info-authorship');
+  const doNotEl = document.getElementById('info-do-not-claim');
+  if (!claimEl || !doNotEl) return;
+
+  if (isDemo(index)) {
+    claimEl.textContent = 'Established sensor product demonstration; outside the 91-record catalog and excluded from contribution claims.';
+    doNotEl.textContent = 'This demonstration does not assert an original formulation.';
+    return;
+  }
+
+  const entry = authorshipClaims[index.key];
+  const status = index.contributionStatus || 'Provisional; entry-level prior-art review pending';
+  // `level`/`strength` in the claims file are the author's own confidence notes.
+  // They are deliberately NOT surfaced: GSIA v2 records priority as not
+  // established, so a "strongly defensible" badge would contradict the registry.
+  claimEl.textContent = entry?.claim
+    ? `${entry.claim} Contribution class ${index.contribution || 'C1'} — ${status}.`
+    : `${DEFAULT_AUTHORSHIP_CLAIM} Contribution class ${index.contribution || 'C1'} — ${status}.`;
+  doNotEl.textContent = entry?.doNotClaim || DEFAULT_DO_NOT_CLAIM;
 }
 
 function renderEvidencePanel(index) {
@@ -1795,6 +1828,7 @@ function selectIndex(key) {
     : `Bookmark window ends ${bm.date}. Resolve the exact acquisition timestamp from CDSE STAC when capturing an article image.`;
   document.getElementById('info-physics').textContent = idx.physics;
   document.getElementById('info-benefit').textContent = idx.benefit;
+  renderAuthorshipClaim(idx);
   renderLinkedInGroundTruth(idx);
   renderCaptureOverlay(idx);
   document.getElementById('info-bookmark').textContent =
@@ -2457,6 +2491,37 @@ function normalizeSearchText(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+function applyUrlHashState() {
+  const hash = String(window.location.hash || '').replace(/^#/, '');
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  const targetKey = params.get('lens') || params.get('index') || params.get('id') || params.get('key');
+  if (targetKey) {
+    const idx = ATLAS_INDICES.find(item =>
+      item.key.toLowerCase() === targetKey.toLowerCase() ||
+      item.acronym.toLowerCase() === targetKey.toLowerCase()
+    );
+    if (idx) selectIndex(idx.key);
+  }
+
+  const lat = parseFloat(params.get('lat'));
+  const lng = parseFloat(params.get('lng'));
+  const zoom = parseInt(params.get('zoom'), 10);
+  if (!isNaN(lat) && !isNaN(lng) && map) {
+    map.setView([lat, lng], !isNaN(zoom) ? zoom : (map.getZoom() || 11));
+  }
+
+  const date = params.get('date');
+  if (date) {
+    const select = document.getElementById('atlas-date-select');
+    if (select) {
+      select.value = date;
+      state.date = date;
+      refreshTiles();
+    }
+  }
+}
+
 export async function initAtlas() {
   initMap();
   buildSidebar();
@@ -2466,4 +2531,8 @@ export async function initAtlas() {
   // Auto-select first renderable index
   const first = ATLAS_INDICES.find(i => i.canRender);
   if (first) selectIndex(first.key);
+
+  // Apply deep-link URL hash parameters if present
+  applyUrlHashState();
+  window.addEventListener('hashchange', applyUrlHashState);
 }

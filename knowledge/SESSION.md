@@ -2,15 +2,38 @@
 
 ## Last Known State
 
-**Date:** 2026-07-23
+**Date:** 2026-07-25
 **Active projects this session:** limn
-**Agent:** Claude Code CLI (Sonnet 5)
+**Agent:** Claude Code CLI (Opus 5)
 **Handoff-from:** Claude Code CLI
-**Handoff-type:** continuation
+**Handoff-type:** cold-eyes
 **Goal:** (1) Filter both apps' date selectors to only show dates with a real Sentinel-1/Sentinel-2 scene, tagged `[S]`; remove dates with no Sentinel collection. (2) For Limn, add capability badges to index buttons marking which are salinity-related and/or part of the produced-water/brine screening set. (3) QC Limn Atlas's 6 G&A article leads for scientific soundness, visual quality, and editorial readiness, then fix what the QC found.
 **Status:** All completed. See `knowledge/DECISIONS.md` "Date selectors filter to Sentinel-only dates in both apps", "Index buttons carry salinity/produced-water capability badges", and "EC-ACI honesty pass + LinkedIn template grammar fix" for full detail. Date-selector work: new shared `src/sentinel-catalog.js`; `app.js`/`atlas-app.js`/`report.js` reworked; Atlas's native date input replaced with a `<select>`; new `tests/test_date_selector_filter.mjs`; discovered and removed a dead-code provider gate that had silently disabled all catalog probing under the default COG provider. Badge work: `tags` field added to 13 `INDICES` entries in `src/indices.js`, rendered via `CAPABILITY_BADGES`/`capabilityBadgesHTML()` in `src/app.js` on both the Suite Grid and Command Console. Atlas QC: published an artifact report auditing the 6 G&A leads (BH-DFSI/LFMPI/PETI/EPDI/EC-ACI/TDR-ASI) across scientific/visual/editorial axes; found and fixed EC-ACI's missing `FORMULA_V2_OVERRIDES` entry (was overclaiming ECOSTRESS/heat-island-intensity) plus its bad bookmark date, and a catalog-wide grammar bug in the LinkedIn Ground Truth generator. All test suites pass; verified in headless Chrome.
 
 ## Active Checkpoints
+
+### 2026-07-25 - Deep scientific review + 8 corrections (Claude Code CLI / Opus 5)
+- Scope: Limn Atlas + Sentinel processing, driven by two uses — writing about band combinations, and FRGS/CGeo applications. Reviewed all 91 records against the published GSIA preprint v2 supplement.
+- **Radiometric bug (highest severity):** COG provider omitted the baseline-04.00 `BOA_ADD_OFFSET`; every post-2022-01-25 reflectance read 0.1 high, biasing all normalized ratios (not just threshold indices). Fixed with per-scene offset resolution + double-correction guard. WMS and GEE paths were never affected. See ERRORS.md.
+- 7 records advertised sensors (EMIT/EnMAP/Planet/GPM/TROPOMI) their evalscripts never sample → `requiredInputs` corrected to actual, aspiration moved to `proposedFormula`.
+- LISI and DLPEHI `implementedFormula` did not match executing code (LISI extra B11 term; DLPEHI's NDTI term never implemented). IPVSI/WVTDI carried prose instead of equations. All four corrected.
+- NPDefI physics error: anthocyanins do not have a SWIR2 feature (they absorb ~500–550 nm). Rationale rewritten.
+- BSI had 3 incompatible definitions, NDVI had 2 → unified; DLPEHI's B03→B02 typo corrected with B02 added to `setup()`; EPDI/LFMPI variables renamed for clarity (no math change).
+- `authorshipClaims.js` and `verifiedBookmarks.js` were both dead code. Authorship claims now render in the Atlas panel (explicit for 19, honest default for the rest); MVPI's "Very High" methane claim downgraded as contradicting the project's own negative result.
+- 21 of 90 verifiedBookmarks rows had pre-Sentinel-2 event dates (earliest 1998) → `eventDate` split from search-window `date`, null where unobservable.
+- Preprint alignment: **all reported counts still hold** (91; 37/16/38; roles unchanged). 37 field-level differences, all toward honesty. New `execution/reconcile_preprint_supplement.py` makes drift reproducible; erratum written to `remote-sensing-research/preprint/gsia_preprint_v2_erratum_2026-07-25.md`.
+- Verification: all 13 node suites + 3 python suites pass; 2 new regression tests added; evalscript static audit 37/37 zero flags; new info panel confirmed in headless Chrome with no page errors.
+
+
+### 2026-07-24 - Automated Baseline Subtraction & Primary Screeners UI (Antigravity AI / Gemini 3.6 Flash)
+- **Strict Boundary Separation Enforced:** Verified architectural boundary: Normal Limn (`index.html`, `src/indices.js`, `src/app.js`) is exclusively focused on Permian Basin produced-water spill screening. Limn Atlas (`atlas.html`, `src/atlas-indices.js`, `src/atlas-app.js`) is strictly reserved for general Earth science (wildfire, water quality, urban heat, permafrost, agriculture, mining) and contains ZERO produced-water formulas or references.
+- **ES Module Alignment:** Added `"type": "module"` to `package.json`, eliminating Node typeless package warnings during test execution.
+- **RateLimitedWMS AbortController Optimization:** Upgraded `RateLimitedWMS` in `src/map.js` with `AbortController` cancellation and `onRemove()` queue teardown. Switching layers or dates now instantly aborts obsolete in-flight WMS tile fetches, freeing browser sockets for immediate new tile requests.
+- **Copernicus Sentinel Hub WMS Restoration:** Fixed root cause of pixelation shown in user screenshot. Configured `IMAGE_PROVIDER: "sentinelhub"`, `SENTINEL_LIVE_TILES: true`, and `SENTINEL_MIN_ZOOM: 10` in `config-v1.js`. Restored direct live Copernicus Data Space WMS rendering so Sentinel-2 L2A tiles calculate 10m high-resolution pixels directly without falling back to COG tiles.
+- **Upsampling & Smooth Tile Rendering Fix:** Added `upsampling: "BILINEAR"` and `downsampling: "BILINEAR"` to `setup()` across `src/indices.js` and `src/atlas-indices.js`. Set `tileSize: 256` and `zoomOffset: 0` in `src/map.js` for all COG indices (eliminating 2x DOM stretching of 256px PNGs from $Z-1$), increased WMS `maxConcurrent` to 4, and added `.leaflet-tile { image-rendering: smooth !important; }` in `style.css`.
+- **Automated Temporal Baseline Subtraction ($\Delta = T_2 - T_1$):** Built `getAutoBaselineDate(activeDateStr, 30)` in `src/app.js` and added `#btn-auto-baseline` to Compare Mode HUD in `index.html`. Automatically calculates pre-spill baseline ($T_1$, ~30 days prior) and computes change heatmap $T_2 - T_1$, subtracting out static Permian caliche and well pads to isolate new spills.
+- **Primary Screeners Featured UI:** Added `primaryScreener: true` metadata and `fieldRole` descriptions to `lbi` (Liquid Brine) and `hpwi` (OBEC) in `src/indices.js`. Created featured "PRIMARY PRODUCED WATER SCREENERS" top grid section in `index.html` with explicit field-use badges.
+- All test suites pass cleanly (`test:core:parity`, `test:core:ui`, `test:spill:timeline`, `test:science-status`, `test_gee_provider`).
 
 ### 2026-07-24 - Wired real Sentinel-2 L2A layer + COG auto-fallback (Claude Code CLI / Sonnet 5)
 - User wants "Sentinel primary, COG secondary" for visuals/analysis. Discovered the bundled public WMS carrier (`AGRICULTURE`, instance `83a6b821...`) is Sentinel-2 L1C (confirmed via GetCapabilities — exposes `B10`, no `SCL`), which would make analysis *worse* than COG's L2A, not better.
@@ -140,3 +163,4 @@
 - 2026-07-24 06:38 — commit: fix: Atlas EC-ACI honesty + LinkedIn grammar; hotspot-loop SCL bug; brine calibration site | directives/fix_atlas_lead_qc_findings.md,directives/fix_hotspot_loop_and_add_brine_site.md,execution/limn_hotspot_loop.py,knowledge/DECISIONS.md,knowledge/ERRORS.md
 - 2026-07-24 06:38 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-24 09:17 — commit: fix: Sentinel Hub instance ID mismatch blocking new L2A layer | config.example.js,knowledge/DECISIONS.md,knowledge/ERRORS.md,knowledge/SESSION.md,knowledge/domain/api-contracts.md
+- 2026-07-24 09:17 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md

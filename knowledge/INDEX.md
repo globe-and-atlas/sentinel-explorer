@@ -4,7 +4,7 @@
 - [architecture.md](domain/architecture.md) — Module structure, data flow, global state, key patterns; 2026-07-23 added `sentinel-catalog.js`/`atlas-app.js` module rows and the Sentinel-only date filtering design
 - [spectral-indices.md](domain/spectral-indices.md) — 2026-06-08 current index registry, evalscript logic, band combinations, calibration presets, and produced-water render opacity guards
 - [spectral-indices-full.md](domain/spectral-indices-full.md) — Full architecture reference: all indices with formulas, evalscripts, citations, delta logic
-- [api-contracts.md](domain/api-contracts.md) — Sentinel Hub WMS, Statistics API, CDSE Auth, RRC GeoJSON schema; 2026-07-23 corrected the GEE-mode acquisition-probing claim (no longer skipped)
+- [api-contracts.md](domain/api-contracts.md) — Sentinel Hub WMS, Statistics API, CDSE Auth, RRC GeoJSON schema; 2026-07-25 added the per-provider reflectance/BOA_ADD_OFFSET correctness contract; 2026-07-23 corrected the GEE-mode acquisition-probing claim
 - [deps.md](domain/deps.md) — 2026-06-07 Node browser-test dependency notes
 - [known-quirks.md](domain/known-quirks.md) — Non-obvious behaviors and intentional design decisions; 2026-07-23 added note that the rendered date-selector options are now a Sentinel-only filtered subset of ALL_DATES
 - [novelty-review.md](domain/novelty-review.md) — 2026-05-24 update verifying the absolute novelty boundaries of all flagship composites via OpenAlex and arXiv literature reviews
@@ -25,6 +25,8 @@
 - [shareable_sentinel_only.md](procedural/shareable_sentinel_only.md) — 2026-06-10 launch and verification notes for the Sentinel-only Produced Water share view
 - [atlas_wms_source_switch.md](procedural/atlas_wms_source_switch.md) — 2026-06-16 Atlas HUD switch for configured Copernicus vs Sentinel Viewer WMS sources
 - [atlas_evidence_standard.md](procedural/atlas_evidence_standard.md) — 2026-06-17 Atlas evidence standard, incident citation counting rule, strong-verification layer, complete 44-row source deep-dive baseline, and audit workflow for Atlas bookmarks
+
+- [preprint-alignment.md](domain/preprint-alignment.md) — 2026-07-25 mapping between the live registry and the published GSIA preprint v2 supplement, plus how to detect drift
 
 ## Session & Decisions
 - [SESSION.md](SESSION.md) — Active session state and last known state

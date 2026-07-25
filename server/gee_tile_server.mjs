@@ -245,6 +245,11 @@ function getS2Image(searchParams) {
             return image.updateMask(clearMask);
         });
 
+    // A bare /10000 is correct HERE and only here: S2_SR_HARMONIZED already
+    // shifts post-baseline-04.00 scenes back into the pre-04.00 DN range, so the
+    // BOA_ADD_OFFSET is spent before we see the pixels. Do not copy this line
+    // into a raw-DN path — execution/render_cog_tile.py reads unharmonized ESA
+    // DN from Earth Search and must apply the offset itself.
     return collection
         .median()
         .select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'], S2_BANDS)

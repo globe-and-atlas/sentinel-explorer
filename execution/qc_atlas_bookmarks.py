@@ -348,7 +348,7 @@ def qc_index(session: requests.Session, index: dict[str, Any], args: argparse.Na
     )
 
 
-def write_markdown(results: list[QcResult], args: argparse.Namespace) -> None:
+def write_markdown(results: list[QcResult], args: argparse.Namespace, md_out: Path = MD_OUT) -> None:
     renderable = [result for result in results if result.can_render]
     counts: dict[str, int] = {}
     for result in renderable:
@@ -429,7 +429,7 @@ def write_markdown(results: list[QcResult], args: argparse.Namespace) -> None:
             f"{result.best_date} ({result.best_verdict}) | {result.best_score} |"
         )
 
-    MD_OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    md_out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -448,6 +448,17 @@ def parse_args() -> argparse.Namespace:
         default="needs-work",
         help="Which current bookmark verdicts should get date sweeps.",
     )
+    parser.add_argument(
+        "--keys",
+        nargs="*",
+        default=[],
+        metavar="KEY",
+        help=(
+            "Re-audit only these index keys (e.g. --keys dlpehi). Results are written "
+            "to a -partial suffixed file so a targeted re-run never overwrites the "
+            "full-catalog report."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -455,6 +466,20 @@ def main() -> int:
     args = parse_args()
     OUT_DIR.mkdir(exist_ok=True)
     indices = load_indices()
+
+    json_out, md_out = JSON_OUT, MD_OUT
+    if args.keys:
+        wanted = {key.lower() for key in args.keys}
+        known = {index["key"].lower() for index in indices}
+        unknown = wanted - known
+        if unknown:
+            print(f"Unknown index keys: {sorted(unknown)}", file=sys.stderr)
+            return 2
+        indices = [index for index in indices if index["key"].lower() in wanted]
+        json_out = JSON_OUT.with_name(f"{JSON_OUT.stem}-partial{JSON_OUT.suffix}")
+        md_out = MD_OUT.with_name(f"{MD_OUT.stem}-partial{MD_OUT.suffix}")
+        print(f"Targeted re-audit of {len(indices)} record(s): {sorted(wanted)}")
+
     if args.limit:
         renderable_seen = 0
         limited = []
@@ -476,7 +501,7 @@ def main() -> int:
             print(f"{result.acronym:<10} {result.verdict:<8} visible={result.visible_pct} high={result.high_pct} {result.reason}")
         time.sleep(0.1)
 
-    JSON_OUT.write_text(
+    json_out.write_text(
         json.dumps(
             {
                 "generated": datetime.now().isoformat(timespec="seconds"),
@@ -491,9 +516,9 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    write_markdown(results, args)
-    print(f"\nWrote {JSON_OUT}")
-    print(f"Wrote {MD_OUT}")
+    write_markdown(results, args, md_out)
+    print(f"\nWrote {json_out}")
+    print(f"Wrote {md_out}")
     return 0
 
 

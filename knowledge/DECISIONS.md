@@ -1,5 +1,28 @@
 # Architecture Decisions — sentinel-explorer
 
+## Scientific review: claims corrected to match executing code; app corrects forward of preprint v2 (2026-07-25)
+
+**Context:** Deep scientific review ahead of (a) writing more about band combinations and (b) featuring Limn Atlas in FRGS and Chartered Geographer applications. Both uses require that a stated formula be exactly what executes.
+
+**What the review found that prior audits missed.** The 2026-07-21 preprint audit checked band declarations, output shape, schema completeness, and display visibility. It did not check three things, and all three were broken:
+1. whether a record's stated inputs matched the sensors its evalscript samples (7 records overstated);
+2. whether `implementedFormula` matched the executing code (LISI, DLPEHI wrong; IPVSI, WVTDI were prose);
+3. whether the reflectance conversion was radiometrically correct (it was not — see ERRORS.md).
+
+**Decisions taken:**
+
+- **Correct claims, not renders.** Where the displayed formula disagreed with working code (LISI's extra `B11` denominator term, DLPEHI's never-implemented NDTI term), the *claim* was corrected and the aspiration moved to `proposedFormula`. Rewriting the code instead would have invalidated the preprint's audited display-QC results for no scientific gain. This is exactly what the v2 proposed/implemented split exists for.
+- **One exception, deliberately.** DLPEHI's `bsi` used B03 where seven other records use B02. That is an unintended deviation rather than a design choice, so the *code* was corrected and B02 added to its `setup()` inputs (using an undeclared band silently evaluates to 0 in the SH engine — the exact failure `audit_atlas_evalscripts.py` exists to catch). Static audit still passes 37/37.
+- **Do not fabricate authorship claims.** `authorshipClaims.js` covered 19 of 91 records and was dead code — imported by nothing. It is now wired into the Atlas info panel, but the 72 records without an explicit claim render the registry-wide default ("priority not established") rather than 72 invented claims.
+- **Do not render the author's own confidence notes.** The `level`/`strength` fields ("Very High", "Strongly defensible") contradict preprint §4.5, which records priority as not established. They stay in the file for traceability and are deliberately not surfaced.
+- **MVPI downgraded, not deleted.** Its "Very High" methane-screening claim contradicted the project's own 1,224-combination negative result and Varon et al. (2021). Downgraded to a superseded claim per the registry rule that negative results stay visible.
+- **Impossible provenance dates made explicit, not silently dropped.** 21 of 90 `verifiedBookmarks` rows carried event dates preceding Sentinel-2 (earliest 1998). Rather than delete real event provenance, `eventDate` is now separate from the Sentinel search-window `date`, which is `null` with `sentinelObservable: false` where no Sentinel-2 scene can exist.
+- **Divergence from the published preprint is tracked, not avoided.** `execution/reconcile_preprint_supplement.py` diffs the live registry against the published supplement CSV. Current state: **all preprint counts still hold** (91 records; 37 M3 / 16 M2 / 38 M1; role distribution unchanged), with 37 field-level differences, all moving toward honesty. Recorded in `remote-sensing-research/preprint/gsia_preprint_v2_erratum_2026-07-25.md`.
+
+**Note on direction of drift:** one supplement row (EC-ACI) is stale in the *opposite* direction — the app corrected it on 2026-07-23, after the v2 snapshot. The published supplement carries its pre-correction ECOSTRESS claim. The app was not regressed to match.
+
+**Interface:** "Physics"/"Benefit" relabelled to "Observable"/"Intended use & inference limit", matching the paired-clause requirement in preprint §2.3 and §7.1.
+
 ## Added a real Sentinel-2 L2A WMS layer; COG now falls back automatically when Sentinel is guarded (2026-07-24)
 
 **Context:** User wants "Sentinel primary, COG secondary" for analysis. Investigation found the bundled public Sentinel Hub WMS carrier (`AGRICULTURE` on instance `83a6b821...`) is **Sentinel-2 L1C** (confirmed via `GetCapabilities`: exposes `B10`, the L1C-only cirrus band; no `SCL` layer) — top-of-atmosphere reflectance, no cloud masking. COG (`render_cog_tile.py`) reads `sentinel-2-l2a` from Earth Search with SCL masking. The produced-water/salinity formulas are defined on surface reflectance, so L1C-Sentinel would have made analysis *worse*, not better. User added a genuine `SENTINEL-2-L2A` layer (Source: "Sentinel-2 - L2A") to the same instance via the Configuration Utility to fix this.

@@ -44,6 +44,41 @@ Optional server env:
 - `COG_TILE_SIZE`
 - `PYTHON` or `PYTHON_BIN`
 
+### Reflectance convention differs by provider — this is a correctness contract, not a detail
+
+ESA Sentinel-2 processing baseline 04.00 (operational **2022-01-25**) introduced
+`BOA_ADD_OFFSET = -1000` for L2A. Physical reflectance is therefore:
+
+```
+rho = (DN + BOA_ADD_OFFSET) / QUANTIFICATION_VALUE   # = (DN - 1000) / 10000  for baseline >= 04.00
+rho = DN / 10000                                     # for baseline < 04.00
+```
+
+The three providers do **not** agree on who applies this:
+
+| Provider | Serves | Who applies the offset | Correct client conversion |
+|---|---|---|---|
+| Earth Search COG (`sentinel-2-l2a`) | raw ESA DN | **nobody — the client must** | `(DN + offset) / 10000` |
+| Sentinel Hub WMS / Processing API | harmonized | Sentinel Hub (`harmonizeValues` defaults to **true**) | values are already reflectance |
+| Google Earth Engine (`COPERNICUS/S2_SR_HARMONIZED`) | harmonized by Google | Google | `DN / 10000` |
+
+Consequences to keep in mind:
+
+- A bare `DN / 10000` on the COG path reads **0.1 reflectance high** for any
+  post-2022-01-25 scene. This is not a rounding concern — it is larger than most
+  index thresholds in the catalog.
+- An additive offset does **not** cancel in `(a - b) / (a + b)`. Normalized
+  indices are biased toward zero, so "it's just a constant shift, ratios are safe"
+  is false. NDVI from DN 3000/1500: 0.33 uncorrected vs 0.60 corrected.
+- Prefer `earthsearch:boa_offset_applied` over the baseline string when present.
+  If the archive already applied the offset, applying it again double-corrects.
+- Absolute reflectance thresholds tuned on one provider do not transfer to
+  another across the 2022-01-25 boundary without this correction.
+
+Implemented in `execution/render_cog_tile.py` (`resolve_boa_offset`,
+`item_boa_offset`); guarded by `tests/test_cog_boa_offset.py`.
+
+
 ## Google Earth Engine Tile Provider
 
 **Fallback provider**: `IMAGE_PROVIDER: "gee"`
