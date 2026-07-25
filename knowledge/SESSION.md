@@ -180,3 +180,5 @@
 - 2026-07-25 14:51 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-25 14:51 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
 - 2026-07-25 15:28 — commit: docs: session checkpoint for the 2026-07-25 review closeout | knowledge/SESSION.md
+- 2026-07-25 15:38 — commit: docs: append auto-generated post-commit session checkpoint | knowledge/SESSION.md
+- 2026-07-25 15:44 — commit: feat: tile rendering quality, WMS cancellation, auto-baseline, primary screeners | index.html,package.json,src/app.js,src/indices.js,src/map.js
